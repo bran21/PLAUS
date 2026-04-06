@@ -7,7 +7,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0d9f6e 0%, #059669 100%);
+  background: var(--accent);
   border: none;
   color: #fff;
   display: flex;
@@ -64,7 +64,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.875rem 1rem;
-  background: linear-gradient(180deg, rgba(244,246,249,0.9) 0%, rgba(255,255,255,0.7) 100%);
+  background: rgba(244, 246, 249, 0.95);
   border-bottom: 1px solid var(--glass-border);
 }
 
@@ -149,7 +149,7 @@
 }
 
 .msgUser .msgBubble {
-  background: linear-gradient(135deg, rgba(13,159,110,0.1) 0%, rgba(5,150,105,0.06) 100%);
+  background: rgba(13, 159, 110, 0.08);
   border: 1px solid rgba(13,159,110,0.12);
   color: var(--text-primary);
   border-bottom-right-radius: 4px;

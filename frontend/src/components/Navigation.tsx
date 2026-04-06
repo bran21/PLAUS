@@ -1,6 +1,8 @@
 "use client";
 import React, { useState } from "react";
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 const WalletMultiButton = dynamic(
   async () => (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
@@ -10,12 +12,21 @@ import styles from "./Navigation.module.css";
 
 export default function Navigation() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const isApp = pathname?.startsWith("/app");
+
+  const navLinks = [
+    { name: "RWA", href: isApp ? "#markets" : "/app#markets", id: "nav-markets" },
+    { name: "Swap", href: isApp ? "#trade" : "/app#trade", id: "nav-trade" },
+    { name: "Portfolio", href: isApp ? "#portfolio" : "/app#portfolio", id: "nav-portfolio" },
+    { name: "Docs", href: "https://github.com", id: "nav-docs", external: true },
+  ];
 
   return (
     <header className={styles.header}>
       <div className={`container ${styles.inner}`}>
         {/* Logo */}
-        <a href="/" className={styles.logo} id="nav-logo">
+        <Link href="/" className={styles.logo} id="nav-logo">
           <div className={styles.logoIcon}>
             <svg width="32" height="32" viewBox="0 0 1600 1600" style={{ boxShadow: "0 2px 8px rgba(255, 0, 76, 0.2)", borderRadius: "50%" }}>
               <clipPath id="circleClip">
@@ -28,19 +39,34 @@ export default function Navigation() {
             Plaus<span className={styles.logoAccent}>Protocol</span>
           </span>
           <span className={styles.logoBeta}>DEVNET</span>
-        </a>
+        </Link>
 
         {/* Desktop Nav */}
         <nav className={styles.nav}>
-          <a href="#markets" className={styles.navLink} id="nav-markets">Markets</a>
-          <a href="#trade" className={styles.navLink} id="nav-trade">Trade</a>
-          <a href="#portfolio" className={styles.navLink} id="nav-portfolio">Portfolio</a>
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer" className={styles.navLink} id="nav-docs">Docs</a>
+          {navLinks.map((link) => (
+            link.external ? (
+              <a key={link.id} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.navLink} id={link.id}>
+                {link.name}
+              </a>
+            ) : (
+              <Link key={link.id} href={link.href} className={styles.navLink} id={link.id}>
+                {link.name}
+              </Link>
+            )
+          ))}
         </nav>
 
-        {/* Wallet */}
+        {/* Wallet & Launch App */}
         <div className={styles.actions}>
-          <WalletMultiButton className={styles.walletBtn} />
+          {!isApp && (
+            <Link href="/app" className={`btn btn-primary ${styles.launchBtn}`}>
+              Launch App
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: '8px' }}>
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+              </svg>
+            </Link>
+          )}
+          {isApp && <WalletMultiButton className={styles.walletBtn} />}
           <button
             className={`${styles.mobileToggle} btn btn-ghost btn-icon`}
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -61,12 +87,25 @@ export default function Navigation() {
       {/* Mobile Nav */}
       {mobileOpen && (
         <div className={styles.mobileNav}>
-          <a href="#markets" className={styles.mobileNavLink} onClick={() => setMobileOpen(false)}>Markets</a>
-          <a href="#trade" className={styles.mobileNavLink} onClick={() => setMobileOpen(false)}>Trade</a>
-          <a href="#portfolio" className={styles.mobileNavLink} onClick={() => setMobileOpen(false)}>Portfolio</a>
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer" className={styles.mobileNavLink}>Docs</a>
+          {navLinks.map((link) => (
+            link.external ? (
+              <a key={`${link.id}-mobile`} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.mobileNavLink} onClick={() => setMobileOpen(false)}>
+                {link.name}
+              </a>
+            ) : (
+              <Link key={`${link.id}-mobile`} href={link.href} className={styles.mobileNavLink} onClick={() => setMobileOpen(false)}>
+                {link.name}
+              </Link>
+            )
+          ))}
+          {!isApp && (
+            <Link href="/app" className={styles.mobileNavLink} style={{ color: 'var(--accent)' }} onClick={() => setMobileOpen(false)}>
+              Launch App
+            </Link>
+          )}
         </div>
       )}
     </header>
   );
 }
+

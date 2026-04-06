@@ -2,91 +2,162 @@
 import React, { useState } from "react";
 import styles from "./TradePanel.module.css";
 
+interface Token {
+  ticker: string;
+  name: string;
+  icon: string;
+  address?: string;
+  decimals: number;
+}
+
+interface SwapPair {
+  id: string;
+  tokenA: Token;
+  tokenB: Token;
+  reserveA: number;
+  reserveB: number;
+  fee: number; // percentage, e.g. 0.3
+  volume24h: string;
+  tvl: string;
+}
+
+const TOKENS: Record<string, Token> = {
+  USDC: { ticker: "USDC", name: "USD Coin", icon: "💵", address: "GZuZXotcWT9aCSACWs8WWbXH2czVRDh9riPtWL7MRK5a", decimals: 6 },
+  IDRX: { ticker: "IDRX", name: "IDR Stablecoin", icon: "🇮🇩", address: "2DyHbi9PxPngSgnqLAADbArK65cF5sVwccAwAHhgsqMD", decimals: 6 },
+  CROP: { ticker: "CROP", name: "Cropify Token", icon: "🌾", address: "BEsztBGwPpgmfnsT5jBJeNRizx1FzLurPyDVD4X5vtj5", decimals: 6 },
+  JAVA: { ticker: "JAVA", name: "Java Coffee", icon: "☕", decimals: 6 },
+  SKYLN: { ticker: "SKYLN", name: "Skyline Tower", icon: "🏙️", decimals: 6 },
+  SGRID: { ticker: "SGRID", name: "Solar Grid", icon: "☀️", decimals: 6 },
+  BALI: { ticker: "BALI", name: "Bali Resort", icon: "🏝️", decimals: 6 },
+  PALM: { ticker: "PALM", name: "Palm Oil", icon: "🌴", decimals: 6 },
+};
+
+const SWAP_PAIRS: SwapPair[] = [
+  { id: "CROP-USDC", tokenA: TOKENS.CROP, tokenB: TOKENS.USDC, reserveA: 200000, reserveB: 1000000, fee: 0.3, volume24h: "$124.5K", tvl: "$1.2M" },
+  { id: "CROP-IDRX", tokenA: TOKENS.CROP, tokenB: TOKENS.IDRX, reserveA: 100000, reserveB: 78125000, fee: 0.3, volume24h: "$45.2K", tvl: "$500K" },
+  { id: "JAVA-USDC", tokenA: TOKENS.JAVA, tokenB: TOKENS.USDC, reserveA: 5000, reserveB: 125000, fee: 0.3, volume24h: "$38.1K", tvl: "$250K" },
+  { id: "JAVA-IDRX", tokenA: TOKENS.JAVA, tokenB: TOKENS.IDRX, reserveA: 2000, reserveB: 781250000, fee: 0.3, volume24h: "$12.8K", tvl: "$100K" },
+  { id: "SKYLN-USDC", tokenA: TOKENS.SKYLN, tokenB: TOKENS.USDC, reserveA: 24000, reserveB: 2400000, fee: 0.3, volume24h: "$210.0K", tvl: "$4.8M" },
+  { id: "SGRID-USDC", tokenA: TOKENS.SGRID, tokenB: TOKENS.USDC, reserveA: 17000, reserveB: 850000, fee: 0.3, volume24h: "$67.3K", tvl: "$1.7M" },
+  { id: "BALI-USDC", tokenA: TOKENS.BALI, tokenB: TOKENS.USDC, reserveA: 10000, reserveB: 750000, fee: 0.3, volume24h: "$92.4K", tvl: "$1.5M" },
+  { id: "PALM-USDC", tokenA: TOKENS.PALM, tokenB: TOKENS.USDC, reserveA: 100000, reserveB: 1000000, fee: 0.3, volume24h: "$156.7K", tvl: "$2.0M" },
+  { id: "PALM-IDRX", tokenA: TOKENS.PALM, tokenB: TOKENS.IDRX, reserveA: 50000, reserveB: 7812500000, fee: 0.3, volume24h: "$28.9K", tvl: "$625K" },
+];
+
 type Tab = "swap" | "liquidity";
 
-const RWA_TOKENS = [
-  { ticker: "CROP", name: "Cropify Token", price: 5, address: "BEsztBGwPpgmfnsT5jBJeNRizx1FzLurPyDVD4X5vtj5" },
-  { ticker: "JAVA", name: "Java Coffee", price: 25 },
-  { ticker: "SKYLN", name: "Skyline Tower", price: 100 },
-  { ticker: "SGRID", name: "Solar Grid", price: 50 },
-  { ticker: "BALI", name: "Bali Resort", price: 75 },
-  { ticker: "PALM", name: "Palm Oil", price: 10 },
-];
+function computeSwapOutput(amountIn: number, reserveIn: number, reserveOut: number, feePct: number): number {
+  if (amountIn <= 0 || reserveIn <= 0 || reserveOut <= 0) return 0;
+  const amountInAfterFee = amountIn * (1 - feePct / 100);
+  return (reserveOut * amountInAfterFee) / (reserveIn + amountInAfterFee);
+}
 
-const BASE_TOKENS = [
-  { ticker: "USDC", name: "USD Coin", address: "GZuZXotcWT9aCSACWs8WWbXH2czVRDh9riPtWL7MRK5a", price: 1 },
-  { ticker: "IDRX", name: "IDR Stablecoin", address: "2DyHbi9PxPngSgnqLAADbArK65cF5sVwccAwAHhgsqMD", price: 0.000064 },
-];
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1) return n.toFixed(2);
+  return n.toFixed(6);
+}
 
 export default function TradePanel() {
   const [tab, setTab] = useState<Tab>("swap");
+  const [selectedPair, setSelectedPair] = useState<SwapPair>(SWAP_PAIRS[0]);
+  const [isPairDropdownOpen, setIsPairDropdownOpen] = useState(false);
+  const [direction, setDirection] = useState<"AtoB" | "BtoA">("BtoA"); // default: pay stablecoin, receive RWA
   const [fromAmount, setFromAmount] = useState("");
-  const [selectedToken, setSelectedToken] = useState(RWA_TOKENS[0]);
-  const [isTokenSelect, setIsTokenSelect] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Liquidity
-  const [lpUsdc, setLpUsdc] = useState("");
-  const [lpToken, setLpToken] = useState("");
+  const [lpAmountA, setLpAmountA] = useState("");
+  const [lpAmountB, setLpAmountB] = useState("");
 
-  const computedTo =
+  const fromToken = direction === "AtoB" ? selectedPair.tokenA : selectedPair.tokenB;
+  const toToken = direction === "AtoB" ? selectedPair.tokenB : selectedPair.tokenA;
+
+  const reserveFrom = direction === "AtoB" ? selectedPair.reserveA : selectedPair.reserveB;
+  const reserveTo = direction === "AtoB" ? selectedPair.reserveB : selectedPair.reserveA;
+
+  const computedOutput =
     fromAmount && parseFloat(fromAmount) > 0
-      ? (parseFloat(fromAmount) / selectedToken.price).toFixed(4)
-      : "";
+      ? computeSwapOutput(parseFloat(fromAmount), reserveFrom, reserveTo, selectedPair.fee)
+      : 0;
 
-  const computedLpToken =
-    lpUsdc && parseFloat(lpUsdc) > 0
-      ? (parseFloat(lpUsdc) / selectedToken.price).toFixed(4)
-      : "";
+  const priceImpact =
+    fromAmount && parseFloat(fromAmount) > 0
+      ? ((parseFloat(fromAmount) / (reserveFrom + parseFloat(fromAmount))) * 100).toFixed(2)
+      : "0.00";
+
+  const spotRate = reserveFrom > 0 ? reserveTo / reserveFrom : 0;
+
+  const filteredPairs = SWAP_PAIRS.filter((p) =>
+    searchQuery === "" ||
+    p.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.tokenA.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.tokenB.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleFlipDirection = () => {
+    setDirection(direction === "AtoB" ? "BtoA" : "AtoB");
+    setFromAmount("");
+  };
+
+  const handleSelectPair = (pair: SwapPair) => {
+    setSelectedPair(pair);
+    setIsPairDropdownOpen(false);
+    setFromAmount("");
+    setSearchQuery("");
+    // default direction: pay stablecoin  
+    const isStableA = pair.tokenA.ticker === "USDC" || pair.tokenA.ticker === "IDRX";
+    setDirection(isStableA ? "AtoB" : "BtoA");
+  };
 
   return (
     <section className={styles.section} id="trade">
       <div className="container">
         <div className={styles.layout}>
+          {/* Left: Pair list + info */}
           <div className={styles.info}>
-            <h2 className={styles.sectionTitle}>Secondary Market</h2>
+            <h2 className={styles.sectionTitle}>Swap</h2>
             <p className={styles.sectionSub}>
-              Swap RWA tokens instantly or provide liquidity to earn trading fees.
-              All trades settle through integrated DEX aggregators on Solana.
+              Trade RWA tokens instantly through the on-chain AMM.
+              All pairs settle via constant-product pools on Solana.
             </p>
 
-            <div className={styles.features}>
-              <div className={styles.feature}>
-                <div className={styles.featureIcon}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-                  </svg>
-                </div>
-                <div>
-                  <h4 className={styles.featureTitle}>Instant Swaps</h4>
-                  <p className={styles.featureDesc}>Trade RWA tokens for USDC/IDRX through Jupiter/Raydium - sub-second finality.</p>
-                </div>
-              </div>
-              <div className={styles.feature}>
-                <div className={`${styles.featureIcon} ${styles.featureIconBlue}`}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M8 12l2 2 4-4"/>
-                  </svg>
-                </div>
-                <div>
-                  <h4 className={styles.featureTitle}>Provide Liquidity</h4>
-                  <p className={styles.featureDesc}>Earn trading fees by providing RWA + USDC/IDRX to AMM liquidity pools.</p>
-                </div>
-              </div>
-              <div className={styles.feature}>
-                <div className={`${styles.featureIcon} ${styles.featureIconPurple}`}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h4 className={styles.featureTitle}>Permissionless</h4>
-                  <p className={styles.featureDesc}>No KYC. No geo-restrictions. Connect wallet and trade freely.</p>
-                </div>
-              </div>
+            {/* Available Pairs list */}
+            <div className={styles.pairListHeader}>
+              <span className={styles.pairListTitle}>Available Pairs</span>
+              <span className={styles.pairCount}>{SWAP_PAIRS.length} pools</span>
+            </div>
+            <div className={styles.pairList}>
+              {SWAP_PAIRS.map((pair) => (
+                <button
+                  key={pair.id}
+                  className={`${styles.pairItem} ${selectedPair.id === pair.id ? styles.pairItemActive : ""}`}
+                  onClick={() => handleSelectPair(pair)}
+                  id={`pair-${pair.id.toLowerCase()}`}
+                >
+                  <div className={styles.pairIcons}>
+                    <span className={styles.pairIcon}>{pair.tokenA.icon}</span>
+                    <span className={styles.pairIconOverlap}>{pair.tokenB.icon}</span>
+                  </div>
+                  <div className={styles.pairInfo}>
+                    <span className={styles.pairName}>
+                      {pair.tokenA.ticker}/{pair.tokenB.ticker}
+                    </span>
+                    <span className={styles.pairMeta}>
+                      TVL {pair.tvl}
+                    </span>
+                  </div>
+                  <div className={styles.pairRight}>
+                    <span className={styles.pairVol}>{pair.volume24h}</span>
+                    <span className={styles.pairFee}>{pair.fee}% fee</span>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
 
+          {/* Right: Swap Panel */}
           <div className={`glass-elevated ${styles.panel}`}>
             {/* Tab Header */}
             <div className={styles.tabBar}>
@@ -108,11 +179,70 @@ export default function TradePanel() {
 
             {tab === "swap" ? (
               <div className={styles.panelBody}>
+                {/* Pair Selector */}
+                <div className={styles.pairSelector}>
+                  <button
+                    className={styles.pairSelectBtn}
+                    onClick={() => setIsPairDropdownOpen(!isPairDropdownOpen)}
+                    id="pair-select-btn"
+                  >
+                    <div className={styles.pairSelectIcons}>
+                      <span>{selectedPair.tokenA.icon}</span>
+                      <span className={styles.pairSelectOverlap}>{selectedPair.tokenB.icon}</span>
+                    </div>
+                    <span className={styles.pairSelectLabel}>
+                      {selectedPair.tokenA.ticker}/{selectedPair.tokenB.ticker}
+                    </span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+
+                  {isPairDropdownOpen && (
+                    <div className={styles.pairDropdown}>
+                      <div className={styles.pairDropdownSearch}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Search pairs..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className={styles.pairSearchInput}
+                          autoFocus
+                        />
+                      </div>
+                      <div className={styles.pairDropdownList}>
+                        {filteredPairs.map((pair) => (
+                          <button
+                            key={pair.id}
+                            className={`${styles.pairDropdownItem} ${selectedPair.id === pair.id ? styles.pairDropdownItemActive : ""}`}
+                            onClick={() => handleSelectPair(pair)}
+                          >
+                            <div className={styles.pairDropdownIcons}>
+                              <span>{pair.tokenA.icon}</span>
+                              <span className={styles.pairDropdownOverlap}>{pair.tokenB.icon}</span>
+                            </div>
+                            <div className={styles.pairDropdownInfo}>
+                              <strong>{pair.tokenA.ticker}/{pair.tokenB.ticker}</strong>
+                              <span>TVL {pair.tvl} · Vol {pair.volume24h}</span>
+                            </div>
+                          </button>
+                        ))}
+                        {filteredPairs.length === 0 && (
+                          <div className={styles.pairDropdownEmpty}>No pairs found</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* From */}
                 <div className={styles.swapBox}>
                   <div className={styles.swapRow}>
                     <span className={styles.swapLabel}>You Pay</span>
-                    <span className={styles.swapBalance}>Balance: 1,450.00</span>
+                    <span className={styles.swapBalance}>Balance: —</span>
                   </div>
                   <div className={styles.swapInputRow}>
                     <input
@@ -124,17 +254,17 @@ export default function TradePanel() {
                       id="swap-from-input"
                     />
                     <div className={styles.tokenPill}>
-                      <span className={styles.tokenDot} style={{ background: "#2775ca" }} />
-                      USDC / IDRX
+                      <span className={styles.tokenIcon}>{fromToken.icon}</span>
+                      {fromToken.ticker}
                     </div>
                   </div>
                 </div>
 
-                {/* Divider */}
+                {/* Divider with flip */}
                 <div className={styles.divider}>
-                  <button className={styles.swapArrow} id="swap-direction-btn">
+                  <button className={styles.swapArrow} onClick={handleFlipDirection} id="swap-direction-btn">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M12 5v14M5 12l7 7 7-7"/>
+                      <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
                     </svg>
                   </button>
                 </div>
@@ -143,95 +273,144 @@ export default function TradePanel() {
                 <div className={styles.swapBox}>
                   <div className={styles.swapRow}>
                     <span className={styles.swapLabel}>You Receive</span>
-                    <span className={styles.swapBalance}>Balance: 0.00</span>
+                    <span className={styles.swapBalance}>Balance: —</span>
                   </div>
                   <div className={styles.swapInputRow}>
                     <input
                       type="text"
                       placeholder="0.00"
-                      value={computedTo}
+                      value={computedOutput > 0 ? formatNumber(computedOutput) : ""}
                       readOnly
                       className={styles.swapInput}
                       id="swap-to-input"
                     />
-                    <button
-                      className={styles.tokenPill}
-                      onClick={() => setIsTokenSelect(!isTokenSelect)}
-                      id="token-select-btn"
-                    >
-                      <span className={styles.tokenDot} style={{ background: "var(--accent)" }} />
-                      {selectedToken.ticker}
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                  </div>
-
-                  {isTokenSelect && (
-                    <div className={styles.tokenDropdown}>
-                      {RWA_TOKENS.map((t) => (
-                        <button
-                          key={t.ticker}
-                          className={styles.tokenOption}
-                          onClick={() => {
-                            setSelectedToken(t);
-                            setIsTokenSelect(false);
-                          }}
-                        >
-                          <span className={styles.tokenDot} style={{ background: "var(--accent)" }} />
-                          <div>
-                            <strong>{t.ticker}</strong>
-                            <span>{t.name}</span>
-                          </div>
-                          <span className={styles.tokenPrice}>${t.price}</span>
-                        </button>
-                      ))}
+                    <div className={styles.tokenPill}>
+                      <span className={styles.tokenIcon}>{toToken.icon}</span>
+                      {toToken.ticker}
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                <div className={styles.rateRow}>
-                  <span>Rate</span>
-                  <span>1 {selectedToken.ticker} = ${selectedToken.price} equivalent</span>
+                {/* Swap Details */}
+                <div className={styles.swapDetails}>
+                  <div className={styles.detailRow}>
+                    <span>Rate</span>
+                    <span>1 {fromToken.ticker} ≈ {formatNumber(spotRate)} {toToken.ticker}</span>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span>Price Impact</span>
+                    <span className={parseFloat(priceImpact) > 5 ? styles.highImpact : ""}>
+                      {priceImpact}%
+                    </span>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span>Swap Fee</span>
+                    <span>{selectedPair.fee}%</span>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span>Pool Liquidity</span>
+                    <span>{formatNumber(reserveFrom)} {fromToken.ticker} / {formatNumber(reserveTo)} {toToken.ticker}</span>
+                  </div>
                 </div>
 
-                <button 
-                  className="btn btn-primary btn-lg btn-full" 
+                <button
+                  className="btn btn-primary btn-lg btn-full"
                   id="swap-execute-btn"
-                  onClick={() => alert(`Successfully swapped ${fromAmount} USDC/IDRX for ${computedTo} ${selectedToken.ticker}!`)}
+                  disabled={!fromAmount || parseFloat(fromAmount) <= 0}
+                  onClick={() =>
+                    alert(
+                      `Swap ${fromAmount} ${fromToken.ticker} → ${formatNumber(computedOutput)} ${toToken.ticker}\nPair: ${selectedPair.id}\nPrice Impact: ${priceImpact}%`
+                    )
+                  }
                 >
                   {fromAmount && parseFloat(fromAmount) > 0
-                    ? `Swap for ${computedTo} ${selectedToken.ticker}`
+                    ? `Swap for ${formatNumber(computedOutput)} ${toToken.ticker}`
                     : "Enter amount"}
                 </button>
               </div>
             ) : (
+              /* Liquidity Tab */
               <div className={styles.panelBody}>
+                {/* Pair Selector (same) */}
+                <div className={styles.pairSelector}>
+                  <button
+                    className={styles.pairSelectBtn}
+                    onClick={() => setIsPairDropdownOpen(!isPairDropdownOpen)}
+                    id="lp-pair-select-btn"
+                  >
+                    <div className={styles.pairSelectIcons}>
+                      <span>{selectedPair.tokenA.icon}</span>
+                      <span className={styles.pairSelectOverlap}>{selectedPair.tokenB.icon}</span>
+                    </div>
+                    <span className={styles.pairSelectLabel}>
+                      {selectedPair.tokenA.ticker}/{selectedPair.tokenB.ticker}
+                    </span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+
+                  {isPairDropdownOpen && (
+                    <div className={styles.pairDropdown}>
+                      <div className={styles.pairDropdownSearch}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Search pairs..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className={styles.pairSearchInput}
+                          autoFocus
+                        />
+                      </div>
+                      <div className={styles.pairDropdownList}>
+                        {filteredPairs.map((pair) => (
+                          <button
+                            key={pair.id}
+                            className={`${styles.pairDropdownItem} ${selectedPair.id === pair.id ? styles.pairDropdownItemActive : ""}`}
+                            onClick={() => handleSelectPair(pair)}
+                          >
+                            <div className={styles.pairDropdownIcons}>
+                              <span>{pair.tokenA.icon}</span>
+                              <span className={styles.pairDropdownOverlap}>{pair.tokenB.icon}</span>
+                            </div>
+                            <div className={styles.pairDropdownInfo}>
+                              <strong>{pair.tokenA.ticker}/{pair.tokenB.ticker}</strong>
+                              <span>TVL {pair.tvl}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className={styles.swapBox}>
                   <div className={styles.swapRow}>
-                    <span className={styles.swapLabel}>USDC / IDRX Amount</span>
+                    <span className={styles.swapLabel}>{selectedPair.tokenA.ticker} Amount</span>
                   </div>
                   <div className={styles.swapInputRow}>
                     <input
                       type="number"
                       placeholder="0.00"
-                      value={lpUsdc}
+                      value={lpAmountA}
                       onChange={(e) => {
-                        setLpUsdc(e.target.value);
-                        if (e.target.value) {
-                          setLpToken(
-                            (parseFloat(e.target.value) / selectedToken.price).toFixed(4)
-                          );
+                        setLpAmountA(e.target.value);
+                        if (e.target.value && parseFloat(e.target.value) > 0) {
+                          const ratio = selectedPair.reserveB / selectedPair.reserveA;
+                          setLpAmountB((parseFloat(e.target.value) * ratio).toFixed(4));
                         } else {
-                          setLpToken("");
+                          setLpAmountB("");
                         }
                       }}
                       className={styles.swapInput}
-                      id="lp-usdc-input"
+                      id="lp-amount-a-input"
                     />
                     <div className={styles.tokenPill}>
-                      <span className={styles.tokenDot} style={{ background: "#2775ca" }} />
-                      USDC / IDRX
+                      <span className={styles.tokenIcon}>{selectedPair.tokenA.icon}</span>
+                      {selectedPair.tokenA.ticker}
                     </div>
                   </div>
                 </div>
@@ -240,64 +419,50 @@ export default function TradePanel() {
 
                 <div className={styles.swapBox}>
                   <div className={styles.swapRow}>
-                    <span className={styles.swapLabel}>{selectedToken.ticker} Amount</span>
+                    <span className={styles.swapLabel}>{selectedPair.tokenB.ticker} Amount</span>
                   </div>
                   <div className={styles.swapInputRow}>
                     <input
                       type="number"
                       placeholder="0.00"
-                      value={lpToken}
-                      onChange={(e) => setLpToken(e.target.value)}
+                      value={lpAmountB}
+                      onChange={(e) => setLpAmountB(e.target.value)}
                       className={styles.swapInput}
-                      id="lp-token-input"
+                      id="lp-amount-b-input"
                     />
-                    <button
-                      className={styles.tokenPill}
-                      onClick={() => setIsTokenSelect(!isTokenSelect)}
-                      id="lp-token-select-btn"
-                    >
-                      <span className={styles.tokenDot} style={{ background: "var(--accent)" }} />
-                      {selectedToken.ticker}
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                  </div>
-
-                  {isTokenSelect && (
-                    <div className={styles.tokenDropdown}>
-                      {RWA_TOKENS.map((t) => (
-                        <button
-                          key={t.ticker}
-                          className={styles.tokenOption}
-                          onClick={() => {
-                            setSelectedToken(t);
-                            setIsTokenSelect(false);
-                          }}
-                        >
-                          <span className={styles.tokenDot} style={{ background: "var(--accent)" }} />
-                          <div>
-                            <strong>{t.ticker}</strong>
-                            <span>{t.name}</span>
-                          </div>
-                          <span className={styles.tokenPrice}>${t.price}</span>
-                        </button>
-                      ))}
+                    <div className={styles.tokenPill}>
+                      <span className={styles.tokenIcon}>{selectedPair.tokenB.icon}</span>
+                      {selectedPair.tokenB.ticker}
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                <div className={styles.rateRow}>
-                  <span>Pool Pair</span>
-                  <span>{selectedToken.ticker} / USDC or IDRX</span>
+                <div className={styles.swapDetails}>
+                  <div className={styles.detailRow}>
+                    <span>Pool</span>
+                    <span>{selectedPair.tokenA.ticker}/{selectedPair.tokenB.ticker}</span>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span>Current Ratio</span>
+                    <span>1 {selectedPair.tokenA.ticker} = {formatNumber(selectedPair.reserveB / selectedPair.reserveA)} {selectedPair.tokenB.ticker}</span>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span>Pool TVL</span>
+                    <span>{selectedPair.tvl}</span>
+                  </div>
                 </div>
 
-                <button 
-                  className="btn btn-primary btn-lg btn-full" 
+                <button
+                  className="btn btn-primary btn-lg btn-full"
                   id="add-liquidity-btn"
-                  onClick={() => alert(`Successfully added ${lpUsdc} USDC/IDRX and ${lpToken} ${selectedToken.ticker} to liquidity pool!`)}
+                  disabled={!lpAmountA || parseFloat(lpAmountA) <= 0}
+                  onClick={() =>
+                    alert(
+                      `Add Liquidity: ${lpAmountA} ${selectedPair.tokenA.ticker} + ${lpAmountB} ${selectedPair.tokenB.ticker}`
+                    )
+                  }
                 >
-                  {lpUsdc && parseFloat(lpUsdc) > 0
+                  {lpAmountA && parseFloat(lpAmountA) > 0
                     ? "Add Liquidity"
                     : "Enter amounts"}
                 </button>

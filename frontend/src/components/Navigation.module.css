@@ -1,18 +1,21 @@
 .header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
+  width: 260px;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--glass-border);
   z-index: 50;
-  background: rgba(250, 251, 253, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
 }
 
 .inner {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
+  flex-direction: column;
+  padding: 2rem 1.5rem;
+  height: 100%;
 }
 
 .logo {
@@ -20,6 +23,7 @@
   align-items: center;
   gap: 0.625rem;
   text-decoration: none;
+  margin-bottom: 3rem;
 }
 
 .logoIcon {
@@ -51,45 +55,57 @@
   background: var(--accent-bg);
   padding: 0.125rem 0.5rem;
   border-radius: 100px;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: none; /* Hide in sidebar to keep it clean, or keep it if wanted */
 }
 
 .nav {
   display: flex;
-  align-items: center;
-  gap: 0.25rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
 }
 
 .navLink {
   color: var(--text-secondary);
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-sm);
-  transition: color 0.2s, background 0.2s;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
 }
 
 .navLink:hover {
-  color: var(--text-primary);
-  background: rgba(0,0,0,0.03);
+  color: var(--accent);
+  background: rgba(13, 159, 110, 0.04);
 }
 
 .actions {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--glass-border);
 }
 
 .walletBtn {
   background: var(--bg-secondary) !important;
   border: 1px solid var(--glass-border) !important;
-  border-radius: var(--radius-sm) !important;
+  border-radius: var(--radius-md) !important;
   font-family: 'Inter', sans-serif !important;
-  font-size: 0.8125rem !important;
+  font-size: 0.875rem !important;
   font-weight: 600 !important;
-  height: 40px !important;
+  height: 48px !important;
   color: var(--text-primary) !important;
   transition: all 0.2s var(--ease) !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+  width: 100% !important;
+  justify-content: center !important;
 }
 
 .walletBtn:hover {
@@ -98,34 +114,75 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
 }
 
+.launchBtn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 1.25rem !important;
+  height: 48px !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--accent) !important;
+  color: white !important;
+  border: none !important;
+  transition: all 0.2s var(--ease) !important;
+  width: 100% !important;
+}
+
+.launchBtn:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px) !important;
+}
+
 .mobileToggle {
   display: none;
 }
 
 .mobileNav {
   display: none;
-  flex-direction: column;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--glass-border);
-  background: rgba(250, 251, 253, 0.98);
-}
-
-.mobileNavLink {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--glass-border);
-  transition: color 0.2s;
-}
-
-.mobileNavLink:hover {
-  color: var(--text-primary);
 }
 
 @media (max-width: 768px) {
+  .header {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    bottom: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--glass-border);
+    background: rgba(250, 251, 253, 0.95);
+    backdrop-filter: blur(20px);
+  }
+
+  .inner {
+    flex-direction: row;
+    align-items: center;
+    padding: 0 1.5rem;
+    height: 64px;
+    justify-content: space-between;
+  }
+
+  .logo {
+    margin-bottom: 0;
+  }
+
   .nav {
     display: none;
+  }
+
+  .actions {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    flex-direction: row;
+    height: 100%;
+    align-items: center;
+  }
+
+  .walletBtn {
+    height: 40px !important;
+    width: auto !important;
   }
 
   .mobileToggle {
@@ -134,5 +191,17 @@
 
   .mobileNav {
     display: flex;
+    flex-direction: column;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--glass-border);
+    background: var(--bg-primary);
+  }
+
+  .mobileNavLink {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.875rem 0;
+    border-bottom: 1px solid var(--glass-border);
   }
 }
