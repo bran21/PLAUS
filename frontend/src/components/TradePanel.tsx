@@ -1,6 +1,11 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "./TradePanel.module.css";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import * as anchor from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { getAccount, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { useProgram } from "../hooks/useProgram";
 
 interface Token {
   ticker: string;
@@ -22,9 +27,9 @@ interface SwapPair {
 }
 
 const TOKENS: Record<string, Token> = {
-  USDC: { ticker: "USDC", name: "USD Coin", icon: "💵", address: "GZuZXotcWT9aCSACWs8WWbXH2czVRDh9riPtWL7MRK5a", decimals: 6 },
-  IDRX: { ticker: "IDRX", name: "IDR Stablecoin", icon: "🇮🇩", address: "2DyHbi9PxPngSgnqLAADbArK65cF5sVwccAwAHhgsqMD", decimals: 6 },
-  CROP: { ticker: "CROP", name: "Cropify Token", icon: "🌾", address: "BEsztBGwPpgmfnsT5jBJeNRizx1FzLurPyDVD4X5vtj5", decimals: 6 },
+  USDC: { ticker: "USDC", name: "USD Coin", icon: "💵", address: "4ayMQNSs3euPf153WisuS6cZvB6cbcjcat5vcGuBuC8d", decimals: 6 },
+  IDRX: { ticker: "IDRX", name: "IDR Stablecoin", icon: "🇮🇩", address: "v15x8NaCm2teDnVu5M5dhdP5trV1D6YejF8m7a46ovF", decimals: 6 },
+  CROP: { ticker: "CROP", name: "Cropify Token", icon: "🌾", address: "9pH2RaHXG82Ai4iiLKX6xM6rTmqrkbDpWQPfZWTKbVq4", decimals: 6 },
   JAVA: { ticker: "JAVA", name: "Java Coffee", icon: "☕", decimals: 6 },
   SKYLN: { ticker: "SKYLN", name: "Skyline Tower", icon: "🏙️", decimals: 6 },
   SGRID: { ticker: "SGRID", name: "Solar Grid", icon: "☀️", decimals: 6 },
@@ -33,8 +38,8 @@ const TOKENS: Record<string, Token> = {
 };
 
 const SWAP_PAIRS: SwapPair[] = [
-  { id: "CROP-USDC", tokenA: TOKENS.CROP, tokenB: TOKENS.USDC, reserveA: 200000, reserveB: 1000000, fee: 0.3, volume24h: "$124.5K", tvl: "$1.2M" },
-  { id: "CROP-IDRX", tokenA: TOKENS.CROP, tokenB: TOKENS.IDRX, reserveA: 100000, reserveB: 78125000, fee: 0.3, volume24h: "$45.2K", tvl: "$500K" },
+  { id: "CROP-USDC", tokenA: TOKENS.CROP, tokenB: TOKENS.USDC, reserveA: 0, reserveB: 0, fee: 0.3, volume24h: "$124.5K", tvl: "$1.2M" },
+  { id: "IDRX-USDC", tokenA: TOKENS.IDRX, tokenB: TOKENS.USDC, reserveA: 0, reserveB: 0, fee: 0.3, volume24h: "$45.2K", tvl: "$500K" },
   { id: "JAVA-USDC", tokenA: TOKENS.JAVA, tokenB: TOKENS.USDC, reserveA: 5000, reserveB: 125000, fee: 0.3, volume24h: "$38.1K", tvl: "$250K" },
   { id: "JAVA-IDRX", tokenA: TOKENS.JAVA, tokenB: TOKENS.IDRX, reserveA: 2000, reserveB: 781250000, fee: 0.3, volume24h: "$12.8K", tvl: "$100K" },
   { id: "SKYLN-USDC", tokenA: TOKENS.SKYLN, tokenB: TOKENS.USDC, reserveA: 24000, reserveB: 2400000, fee: 0.3, volume24h: "$210.0K", tvl: "$4.8M" },
@@ -60,8 +65,13 @@ function formatNumber(n: number): string {
 }
 
 export default function TradePanel() {
+  const { wallet, publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
+  const program = useProgram();
+
+  const [pairs, setPairs] = useState<SwapPair[]>(SWAP_PAIRS);
   const [tab, setTab] = useState<Tab>("swap");
-  const [selectedPair, setSelectedPair] = useState<SwapPair>(SWAP_PAIRS[0]);
+  const [selectedPair, setSelectedPair] = useState<SwapPair>(pairs[0]);
   const [isPairDropdownOpen, setIsPairDropdownOpen] = useState(false);
   const [direction, setDirection] = useState<"AtoB" | "BtoA">("BtoA"); // default: pay stablecoin, receive RWA
   const [fromAmount, setFromAmount] = useState("");
@@ -70,6 +80,35 @@ export default function TradePanel() {
   // Liquidity
   const [lpAmountA, setLpAmountA] = useState("");
   const [lpAmountB, setLpAmountB] = useState("");
+
+  const [balances, setBalances] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    async function fetchBalances() {
+      if (!publicKey) {
+        setBalances({});
+        return;
+      }
+      const newBalances: Record<string, number> = {};
+      const tokensToCheck = [selectedPair.tokenA, selectedPair.tokenB];
+      for (const token of tokensToCheck) {
+        if (token.address) {
+          try {
+            const mint = new PublicKey(token.address);
+            const ata = await getAssociatedTokenAddress(mint, publicKey);
+            const account = await getAccount(connection, ata);
+            newBalances[token.ticker] = Number(account.amount) / Math.pow(10, token.decimals);
+          } catch (e) {
+            newBalances[token.ticker] = 0;
+          }
+        } else {
+          newBalances[token.ticker] = 0;
+        }
+      }
+      setBalances(newBalances);
+    }
+    fetchBalances();
+  }, [publicKey, connection, selectedPair]);
 
   const fromToken = direction === "AtoB" ? selectedPair.tokenA : selectedPair.tokenB;
   const toToken = direction === "AtoB" ? selectedPair.tokenB : selectedPair.tokenA;
@@ -106,9 +145,128 @@ export default function TradePanel() {
     setIsPairDropdownOpen(false);
     setFromAmount("");
     setSearchQuery("");
-    // default direction: pay stablecoin  
     const isStableA = pair.tokenA.ticker === "USDC" || pair.tokenA.ticker === "IDRX";
     setDirection(isStableA ? "AtoB" : "BtoA");
+  };
+
+  useEffect(() => {
+    async function loadReserves() {
+      if (!program) return;
+      const updatedPairs = await Promise.all(SWAP_PAIRS.map(async (pair) => {
+        if (!pair.tokenA.address || !pair.tokenB.address) return pair;
+        try {
+          const mintA = new PublicKey(pair.tokenA.address);
+          const mintB = new PublicKey(pair.tokenB.address);
+          const [poolPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("pool"), mintA.toBuffer(), mintB.toBuffer()],
+            program.programId
+          );
+          const poolData = await program.account.pool.fetch(poolPda);
+          return {
+            ...pair,
+            reserveA: poolData.reserveA.toNumber() / 1_000_000,
+            reserveB: poolData.reserveB.toNumber() / 1_000_000,
+          };
+        } catch (e) {
+          console.error("Failed to load pool for", pair.id, e);
+          return pair;
+        }
+      }));
+      setPairs(updatedPairs);
+      // Update selected pair if it's already set
+      setSelectedPair(current => updatedPairs.find(p => p.id === current.id) || current);
+    }
+    loadReserves();
+  }, [program]);
+
+  const handleSwap = async () => {
+    if (!program || !publicKey || !selectedPair.tokenA.address || !selectedPair.tokenB.address) {
+      alert("Please connect wallet and select valid pair");
+      return;
+    }
+    
+    try {
+      const mintA = new PublicKey(selectedPair.tokenA.address);
+      const mintB = new PublicKey(selectedPair.tokenB.address);
+      const [poolPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("pool"), mintA.toBuffer(), mintB.toBuffer()],
+        program.programId
+      );
+      const [vaultA] = PublicKey.findProgramAddressSync([Buffer.from("vault_a"), poolPda.toBuffer()], program.programId);
+      const [vaultB] = PublicKey.findProgramAddressSync([Buffer.from("vault_b"), poolPda.toBuffer()], program.programId);
+
+      // We need ATAs for the user
+      // For simplicity, we assume they exist as they were created by the setup script
+      // In a real app we'd get them or create instructions to create them if they don't exist
+      const userTokenA = anchor.utils.token.associatedAddress({ mint: mintA, owner: publicKey });
+      const userTokenB = anchor.utils.token.associatedAddress({ mint: mintB, owner: publicKey });
+
+      const amountInBase = new anchor.BN(parseFloat(fromAmount) * 1_000_000);
+      const isAtoB = direction === "AtoB";
+
+      await program.methods
+        .swap(amountInBase, isAtoB)
+        .accounts({
+          pool: poolPda,
+          user: publicKey,
+          userIn: isAtoB ? userTokenA : userTokenB,
+          userOut: isAtoB ? userTokenB : userTokenA,
+          vaultA: vaultA,
+          vaultB: vaultB,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      alert("Swap successful!");
+      setFromAmount("");
+    } catch (e) {
+      console.error(e);
+      alert("Swap failed");
+    }
+  };
+
+  const handleLiquidity = async () => {
+    if (!program || !publicKey || !selectedPair.tokenA.address || !selectedPair.tokenB.address) {
+      alert("Please connect wallet and select valid pair");
+      return;
+    }
+
+    try {
+      const mintA = new PublicKey(selectedPair.tokenA.address);
+      const mintB = new PublicKey(selectedPair.tokenB.address);
+      const [poolPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("pool"), mintA.toBuffer(), mintB.toBuffer()],
+        program.programId
+      );
+      const [vaultA] = PublicKey.findProgramAddressSync([Buffer.from("vault_a"), poolPda.toBuffer()], program.programId);
+      const [vaultB] = PublicKey.findProgramAddressSync([Buffer.from("vault_b"), poolPda.toBuffer()], program.programId);
+
+      const userTokenA = anchor.utils.token.associatedAddress({ mint: mintA, owner: publicKey });
+      const userTokenB = anchor.utils.token.associatedAddress({ mint: mintB, owner: publicKey });
+
+      const amountABase = new anchor.BN(parseFloat(lpAmountA) * 1_000_000);
+      const amountBBase = new anchor.BN(parseFloat(lpAmountB) * 1_000_000);
+
+      await program.methods
+        .addLiquidity(amountABase, amountBBase)
+        .accounts({
+          pool: poolPda,
+          user: publicKey,
+          userA: userTokenA,
+          userB: userTokenB,
+          vaultA: vaultA,
+          vaultB: vaultB,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      alert("Liquidity added successfully!");
+      setLpAmountA("");
+      setLpAmountB("");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to add liquidity");
+    }
   };
 
   return (
@@ -129,7 +287,7 @@ export default function TradePanel() {
               <span className={styles.pairCount}>{SWAP_PAIRS.length} pools</span>
             </div>
             <div className={styles.pairList}>
-              {SWAP_PAIRS.map((pair) => (
+              {pairs.map((pair) => (
                 <button
                   key={pair.id}
                   className={`${styles.pairItem} ${selectedPair.id === pair.id ? styles.pairItemActive : ""}`}
@@ -242,7 +400,7 @@ export default function TradePanel() {
                 <div className={styles.swapBox}>
                   <div className={styles.swapRow}>
                     <span className={styles.swapLabel}>You Pay</span>
-                    <span className={styles.swapBalance}>Balance: —</span>
+                    <span className={styles.swapBalance}>Balance: {balances[fromToken.ticker] !== undefined ? formatNumber(balances[fromToken.ticker]) : "—"}</span>
                   </div>
                   <div className={styles.swapInputRow}>
                     <input
@@ -273,7 +431,7 @@ export default function TradePanel() {
                 <div className={styles.swapBox}>
                   <div className={styles.swapRow}>
                     <span className={styles.swapLabel}>You Receive</span>
-                    <span className={styles.swapBalance}>Balance: —</span>
+                    <span className={styles.swapBalance}>Balance: {balances[toToken.ticker] !== undefined ? formatNumber(balances[toToken.ticker]) : "—"}</span>
                   </div>
                   <div className={styles.swapInputRow}>
                     <input
@@ -317,11 +475,7 @@ export default function TradePanel() {
                   className="btn btn-primary btn-lg btn-full"
                   id="swap-execute-btn"
                   disabled={!fromAmount || parseFloat(fromAmount) <= 0}
-                  onClick={() =>
-                    alert(
-                      `Swap ${fromAmount} ${fromToken.ticker} → ${formatNumber(computedOutput)} ${toToken.ticker}\nPair: ${selectedPair.id}\nPrice Impact: ${priceImpact}%`
-                    )
-                  }
+                  onClick={handleSwap}
                 >
                   {fromAmount && parseFloat(fromAmount) > 0
                     ? `Swap for ${formatNumber(computedOutput)} ${toToken.ticker}`
@@ -390,6 +544,7 @@ export default function TradePanel() {
                 <div className={styles.swapBox}>
                   <div className={styles.swapRow}>
                     <span className={styles.swapLabel}>{selectedPair.tokenA.ticker} Amount</span>
+                    <span className={styles.swapBalance}>Balance: {balances[selectedPair.tokenA.ticker] !== undefined ? formatNumber(balances[selectedPair.tokenA.ticker]) : "—"}</span>
                   </div>
                   <div className={styles.swapInputRow}>
                     <input
@@ -420,6 +575,7 @@ export default function TradePanel() {
                 <div className={styles.swapBox}>
                   <div className={styles.swapRow}>
                     <span className={styles.swapLabel}>{selectedPair.tokenB.ticker} Amount</span>
+                    <span className={styles.swapBalance}>Balance: {balances[selectedPair.tokenB.ticker] !== undefined ? formatNumber(balances[selectedPair.tokenB.ticker]) : "—"}</span>
                   </div>
                   <div className={styles.swapInputRow}>
                     <input
@@ -456,11 +612,7 @@ export default function TradePanel() {
                   className="btn btn-primary btn-lg btn-full"
                   id="add-liquidity-btn"
                   disabled={!lpAmountA || parseFloat(lpAmountA) <= 0}
-                  onClick={() =>
-                    alert(
-                      `Add Liquidity: ${lpAmountA} ${selectedPair.tokenA.ticker} + ${lpAmountB} ${selectedPair.tokenB.ticker}`
-                    )
-                  }
+                  onClick={handleLiquidity}
                 >
                   {lpAmountA && parseFloat(lpAmountA) > 0
                     ? "Add Liquidity"

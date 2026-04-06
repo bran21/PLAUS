@@ -1,6 +1,8 @@
 "use client";
-import React from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import React, { useEffect, useState } from "react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
+import { getAccount, getAssociatedTokenAddress } from "@solana/spl-token";
 import styles from "./Portfolio.module.css";
 
 const MOCK_HOLDINGS = [
@@ -11,8 +13,42 @@ const MOCK_HOLDINGS = [
   { ticker: "PALM", name: "Palm Oil Yield Fund", amount: "10.00", value: "$100.00", apy: "16.5%", change: "+$5.10" },
 ];
 
+const DEVNET_TOKENS = {
+  USDC: "4ayMQNSs3euPf153WisuS6cZvB6cbcjcat5vcGuBuC8d",
+  IDRX: "v15x8NaCm2teDnVu5M5dhdP5trV1D6YejF8m7a46ovF",
+  CROP: "9pH2RaHXG82Ai4iiLKX6xM6rTmqrkbDpWQPfZWTKbVq4"
+};
+
 export default function Portfolio() {
-  const { connected } = useWallet();
+  const { publicKey, connected } = useWallet();
+  const { connection } = useConnection();
+  const [holdings, setHoldings] = useState<any[]>(MOCK_HOLDINGS);
+
+  useEffect(() => {
+    async function fetchBalances() {
+      if (!publicKey) return;
+
+      const newHoldings = [...MOCK_HOLDINGS];
+
+      for (const [ticker, mintAddress] of Object.entries(DEVNET_TOKENS)) {
+        try {
+          const mint = new PublicKey(mintAddress);
+          const ata = await getAssociatedTokenAddress(mint, publicKey);
+          const account = await getAccount(connection, ata);
+          const balance = Number(account.amount) / 1_000_000; // Assuming 6 decimals
+
+          const index = newHoldings.findIndex(h => h.ticker === ticker);
+          if (index !== -1) {
+            newHoldings[index] = { ...newHoldings[index], amount: balance.toLocaleString(), address: mintAddress };
+          }
+        } catch (e) {
+          console.log(`No account for ${ticker} or error fetching`);
+        }
+      }
+      setHoldings(newHoldings);
+    }
+    fetchBalances();
+  }, [publicKey, connection]);
 
   return (
     <section className={styles.section} id="portfolio">
@@ -50,7 +86,7 @@ export default function Portfolio() {
                 <span>P&L</span>
                 <span></span>
               </div>
-              {MOCK_HOLDINGS.map((h) => (
+              {holdings.map((h) => (
                 <div className={styles.tableRow} key={h.ticker}>
                   <div className={styles.assetCell}>
                     <span className={styles.assetTicker}>${h.ticker}</span>
