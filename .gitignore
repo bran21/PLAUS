@@ -1,0 +1,9 @@
+node_modules/
+.next/
+target/
+.env
+.env.local
+.DS_Store
+*.log
+tmp_base64.txt
+tmp_svg/
