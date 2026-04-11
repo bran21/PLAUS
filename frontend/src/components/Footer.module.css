@@ -1,7 +1,34 @@
 .footer {
   padding: 6rem 0 3rem;
-  background: var(--bg-tertiary);
-  border-top: 1px solid var(--glass-border);
+  background: rgba(5, 11, 20, 0.9);
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* Animated gradient border at top */
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 214, 143, 0.3) 25%,
+    rgba(124, 58, 237, 0.3) 50%,
+    rgba(59, 130, 246, 0.3) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: gradient-slide 8s linear infinite;
+}
+
+@keyframes gradient-slide {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .grid {
@@ -16,7 +43,9 @@
 }
 
 .logo {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1.5rem;
   font-weight: 800;
   color: var(--text-primary);
@@ -50,7 +79,9 @@
 }
 
 .link {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.9375rem;
   color: var(--text-secondary);
   margin-bottom: 0.75rem;
@@ -59,6 +90,18 @@
 
 .link:hover {
   color: var(--accent);
+}
+
+/* Social icons */
+.socialIcon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.link:hover .socialIcon {
+  opacity: 1;
 }
 
 .bottom {

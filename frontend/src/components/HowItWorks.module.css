@@ -1,7 +1,7 @@
 .howItWorks {
-  padding: 6rem 0;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--glass-border);
+  padding: 8rem 0;
+  position: relative;
+  z-index: 1;
 }
 
 .sectionTitle {
@@ -9,48 +9,90 @@
   font-weight: 800;
   text-align: center;
   margin-bottom: 5rem;
+  letter-spacing: -0.03em;
 }
 
 .steps {
   display: flex;
   justify-content: space-between;
-  gap: 3rem;
+  gap: 2rem;
   max-width: 1100px;
   margin: 0 auto;
+  position: relative;
 }
 
 .step {
   flex: 1;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
 }
 
-.numberRow {
+.stepVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.numberWrapper {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
   margin-bottom: 1.5rem;
+  position: relative;
 }
 
 .number {
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--accent);
   background: var(--accent-bg);
-  width: 40px;
-  height: 40px;
+  border: 1px solid rgba(0, 214, 143, 0.2);
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 0 24px rgba(0, 214, 143, 0.15);
 }
 
-.line {
+/* Pulsing ring */
+.number::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 214, 143, 0.15);
+  animation: pulse-ring 3s ease-out infinite;
+}
+
+/* Connecting line */
+.connector {
+  position: absolute;
+  top: 26px;
+  left: calc(50% + 30px);
+  right: calc(-50% + 30px);
   height: 1px;
-  background: rgba(13, 159, 110, 0.15);
-  flex-grow: 1;
+  background: rgba(0, 214, 143, 0.12);
+  z-index: 1;
 }
 
-.step:last-child .line {
+.connectorFill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), rgba(0, 214, 143, 0.3));
+  transition: width 1s ease-out;
+}
+
+.connectorVisible {
+  width: 100%;
+}
+
+.step:last-child .connector {
   display: none;
 }
 
@@ -62,18 +104,25 @@
 }
 
 .stepDesc {
-  font-size: 1rem;
+  font-size: 0.9375rem;
   line-height: 1.6;
   color: var(--text-secondary);
+  max-width: 280px;
+  margin: 0 auto;
 }
 
 @media (max-width: 768px) {
   .steps {
     flex-direction: column;
-    gap: 4rem;
+    gap: 3rem;
+    align-items: center;
   }
 
-  .line {
+  .connector {
     display: none;
+  }
+
+  .step {
+    max-width: 360px;
   }
 }

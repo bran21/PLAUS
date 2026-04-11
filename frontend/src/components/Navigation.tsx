@@ -19,37 +19,56 @@ export default function Navigation() {
     { name: "RWA", href: isApp ? "#markets" : "/app#markets", id: "nav-markets" },
     { name: "Swap", href: isApp ? "#trade" : "/app#trade", id: "nav-trade" },
     { name: "Portfolio", href: isApp ? "#portfolio" : "/app#portfolio", id: "nav-portfolio" },
+    { name: "AI Agent", href: isApp ? "#agent" : "/app#agent", id: "nav-agent" },
     { name: "Docs", href: "https://github.com", id: "nav-docs", external: true },
   ];
 
   return (
-    <header className={styles.header}>
-      <div className={`container ${styles.inner}`}>
+    <header className={isApp ? styles.headerSidebar : styles.header}>
+      <div className={isApp ? styles.innerSidebar : `container ${styles.inner}`}>
         {/* Logo */}
-        <Link href="/" className={styles.logo} id="nav-logo">
+        <Link href="/" className={`${styles.logo} ${isApp ? styles.logoSidebar : ""}`} id="nav-logo">
           <div className={styles.logoIcon}>
-            <svg width="32" height="32" viewBox="0 0 1600 1600" style={{ boxShadow: "0 2px 8px rgba(255, 0, 76, 0.2)", borderRadius: "50%" }}>
-              <clipPath id="circleClip">
-                <circle cx="800" cy="800" r="800" />
-              </clipPath>
-              <image href="/plaus.jpeg" width="1600" height="1600" clipPath="url(#circleClip)" />
-            </svg>
+            <img
+              src="/plaus.png"
+              alt="Plaus Protocol Logo"
+              width="40"
+              height="40"
+              style={{
+                borderRadius: "50%",
+                boxShadow: "0 0 0 2px rgba(0, 214, 143, 0.15), 0 4px 16px rgba(0, 214, 143, 0.2)",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
           </div>
           <span className={styles.logoText}>
             Plaus<span className={styles.logoAccent}>Protocol</span>
           </span>
-          <span className={styles.logoBeta}>DEVNET</span>
+          {!isApp && <span className={styles.logoBeta}>DEVNET</span>}
         </Link>
 
         {/* Desktop Nav */}
-        <nav className={styles.nav}>
+        <nav className={isApp ? styles.navSidebar : styles.nav}>
           {navLinks.map((link) => (
             link.external ? (
-              <a key={link.id} href={link.href} target="_blank" rel="noopener noreferrer" className={styles.navLink} id={link.id}>
+              <a
+                key={link.id}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${styles.navLink} ${isApp ? styles.navLinkSidebar : ""}`}
+                id={link.id}
+              >
                 {link.name}
               </a>
             ) : (
-              <Link key={link.id} href={link.href} className={styles.navLink} id={link.id}>
+              <Link
+                key={link.id}
+                href={link.href}
+                className={`${styles.navLink} ${isApp ? styles.navLinkSidebar : ""}`}
+                id={link.id}
+              >
                 {link.name}
               </Link>
             )
@@ -57,16 +76,16 @@ export default function Navigation() {
         </nav>
 
         {/* Wallet & Launch App */}
-        <div className={styles.actions}>
+        <div className={isApp ? styles.actionsSidebar : styles.actions}>
           {!isApp && (
             <Link href="/app" className={`btn btn-primary ${styles.launchBtn}`}>
               Launch App
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: '8px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: '4px' }}>
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
               </svg>
             </Link>
           )}
-          {isApp && <WalletMultiButton className={styles.walletBtn} />}
+          {isApp && <WalletMultiButton className={`${styles.walletBtn} ${isApp ? styles.walletBtnSidebar : ""}`} />}
           <button
             className={`${styles.mobileToggle} btn btn-ghost btn-icon`}
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -108,4 +127,3 @@ export default function Navigation() {
     </header>
   );
 }
-

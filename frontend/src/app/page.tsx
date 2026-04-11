@@ -1,4 +1,5 @@
 
+import Navigation from "@/components/Navigation";
 import Hero from "@/components/Hero";
 import Features from "@/components/Features";
 import HowItWorks from "@/components/HowItWorks";
@@ -8,23 +9,60 @@ import Link from "next/link";
 export default function Home() {
   return (
     <>
+      <Navigation />
       <main className="landing-page">
         <Hero />
         <Features />
         <HowItWorks />
 
         {/* Final CTA Section */}
-        <section className="py-24 relative overflow-hidden">
-          <div className="container relative z-10">
-            <div className="glass p-12 md:p-20 text-center max-w-4xl mx-auto border-accent/20">
-              <h2 className="text-4xl md:text-5xl font-800 mb-6 leading-tight">
+        <section style={{ padding: '8rem 0', position: 'relative', zIndex: 1, overflow: 'hidden' }}>
+          <div className="container" style={{ position: 'relative', zIndex: 1 }}>
+            <div
+              className="glass"
+              style={{
+                padding: 'clamp(3rem, 6vw, 5rem)',
+                textAlign: 'center',
+                maxWidth: '800px',
+                margin: '0 auto',
+                borderColor: 'rgba(0, 214, 143, 0.1)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Radial glow */}
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '400px',
+                height: '400px',
+                background: 'radial-gradient(circle, rgba(0, 214, 143, 0.08), transparent 70%)',
+                pointerEvents: 'none',
+              }} />
+              <h2 style={{
+                fontSize: 'clamp(2rem, 4vw, 2.75rem)',
+                fontWeight: 800,
+                marginBottom: '1.25rem',
+                lineHeight: 1.15,
+                letterSpacing: '-0.03em',
+                position: 'relative',
+              }}>
                 Ready to Invest in the <br />
                 <span className="text-accent-gradient">Future of Assets?</span>
               </h2>
-              <p className="text-xl text-gray-500 mb-10 max-w-2xl mx-auto">
+              <p style={{
+                fontSize: '1.125rem',
+                color: 'var(--text-secondary)',
+                marginBottom: '2.5rem',
+                maxWidth: '560px',
+                margin: '0 auto 2.5rem',
+                position: 'relative',
+              }}>
                 Join thousands of investors already leveraging Plaus Protocol to fractionalize and trade high-yield real-world assets.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', position: 'relative' }}>
                 <Link href="/app" className="btn btn-primary btn-lg">
                   Launch Application
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: '8px' }}>
@@ -37,13 +75,9 @@ export default function Home() {
               </div>
             </div>
           </div>
-          {/* Background decoration */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/5 blur-[120px] rounded-full -z-10" />
         </section>
       </main>
       <Footer />
     </>
   );
 }
-
-

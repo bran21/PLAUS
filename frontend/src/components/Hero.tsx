@@ -3,6 +3,41 @@ import React from "react";
 import Link from "next/link";
 import styles from "./Hero.module.css";
 
+function AnimatedTitle() {
+  const words = ["Fractional", "Real World Assets", "on Solana DeFi"];
+  let wordIndex = 0;
+
+  return (
+    <h1 className={styles.title}>
+      {words.map((word, i) => {
+        const delay = wordIndex * 0.08;
+        wordIndex++;
+        const isAccent = word === "Real World Assets";
+        return (
+          <React.Fragment key={i}>
+            {isAccent ? (
+              <span
+                className={`text-accent-gradient ${styles.titleWord}`}
+                style={{ animationDelay: `${delay}s` }}
+              >
+                {word}
+              </span>
+            ) : (
+              <span
+                className={styles.titleWord}
+                style={{ animationDelay: `${delay}s` }}
+              >
+                {word}
+              </span>
+            )}
+            {i < words.length - 1 && <br />}
+          </React.Fragment>
+        );
+      })}
+    </h1>
+  );
+}
+
 export default function Hero() {
   return (
     <section className={styles.hero}>
@@ -13,10 +48,7 @@ export default function Hero() {
               <span className="pulse-dot" />
               <span>Live on Solana Devnet</span>
             </div>
-            <h1 className={styles.title}>
-              Fractional <span className="text-accent-gradient">Real World Assets</span>
-              <br />on Solana DeFi
-            </h1>
+            <AnimatedTitle />
             <p className={styles.subtitle}>
               Invest in tokenized real estate, agriculture, and infrastructure using USDC and IDRX.
               Trade on secondary DEXs. Let AI execute your investment intents — all permissionless.
@@ -42,7 +74,19 @@ export default function Hero() {
               </div>
               <div className={styles.cardChart}>
                 <svg width="100%" height="60" viewBox="0 0 200 60">
-                  <path d="M0 50 Q 25 45, 50 35 T 100 30 T 150 20 T 200 10" stroke="var(--accent)" strokeWidth="3" fill="none" />
+                  <defs>
+                    <linearGradient id="sparkGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#00d68f" stopOpacity="0.2" />
+                      <stop offset="100%" stopColor="#00d68f" stopOpacity="1" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M0 50 Q 25 45, 50 35 T 100 30 T 150 20 T 200 10"
+                    stroke="url(#sparkGrad)"
+                    strokeWidth="2.5"
+                    fill="none"
+                    className={styles.sparkline}
+                  />
                 </svg>
               </div>
               <div className={styles.cardFooter}>
@@ -52,7 +96,7 @@ export default function Hero() {
             </div>
             <div className={`${styles.visualCard} ${styles.cardSecondary}`}>
               <div className={styles.cardHeader}>
-                <div className={styles.cardBadge} style={{ background: 'rgba(37, 99, 235, 0.1)', color: 'var(--blue)' }}>Asset Pool</div>
+                <div className={styles.cardBadge} style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--blue)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>Asset Pool</div>
                 <div className={styles.cardPrice}>$1.2M</div>
               </div>
               <div className={styles.cardFooter}>
@@ -70,10 +114,17 @@ export default function Hero() {
           <StatCard label="Total Investors" value="1,284" change="+156" />
         </div>
       </div>
+
+      {/* Scroll indicator */}
+      <div className={styles.scrollIndicator}>
+        <span>Scroll</span>
+        <svg className={styles.scrollChevron} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </div>
     </section>
   );
 }
-
 
 function StatCard({ label, value, change }: { label: string; value: string; change: string; }) {
   return (

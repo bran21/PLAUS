@@ -161,6 +161,7 @@ export default function TradePanel() {
             [Buffer.from("pool"), mintA.toBuffer(), mintB.toBuffer()],
             program.programId
           );
+          // @ts-expect-error — Anchor IDL types not fully resolved at compile time
           const poolData = await program.account.pool.fetch(poolPda);
           return {
             ...pair,

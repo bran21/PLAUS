@@ -35,7 +35,38 @@ Navigating DeFi can be complex for traditional investors. The protocol frontend 
 
 Instead of manually crafting transactions, users can communicate intents: *"I want to invest 50 USDC into the High-Yield Real Estate RWA."* The AI agent parses this intent, constructs the exact base64 transaction payload, and prompts the user's connected wallet for a single signature.
 
-## 5. Technology Stack & Roadmap
+## 5. Interoperability & Fiat Access Layer
+
+A core design principle of this protocol is that it remains **fully permissionless** — the protocol itself never touches fiat currency. Instead, fiat-to-crypto conversion is handled at the **edge** by a composable stack of interoperability and on-ramp partners. This creates a clean regulatory boundary while ensuring broad global accessibility.
+
+### Fiat On-Ramps (Edge Conversion)
+For users who hold traditional currency (USD, IDR, etc.), the protocol frontend can embed third-party on-ramp widgets that handle all KYC/AML compliance independently:
+
+- **Transak / MoonPay**: Single SDK embed; users pay via card or bank transfer and receive USDC directly into their non-custodial wallet — no KYC burden on the protocol.
+- **IDRX.co**: Dedicated IDR → IDRX stable conversion for the Indonesian market, enabling seamless local fiat access to the protocol's IDRX investment pool.
+- **Coinbase Onramp**: Institutional-grade fiat → USDC conversion for US-based investors.
+
+In all cases, the flow is: **Fiat → (third-party) → USDC/IDRX in user wallet → protocol `invest_funds()`**. The protocol only ever sees settled stablecoins.
+
+### Cross-Chain Interoperability (Bridge Layer)
+The protocol's SPL token standard and USDC settlement layer make it natively compatible with cross-chain bridge infrastructure, opening the platform to liquidity from any EVM or non-EVM chain:
+
+- **Wormhole**: Enables USDC holders on Ethereum, Polygon, Avalanche, and other chains to bridge directly to Solana and participate in the protocol without holding native SOL.
+- **DeBridge**: Provides a single-click cross-chain swap + bridge, converting any asset on any chain into USDC on Solana in one transaction.
+- **LayerZero (OFT Standard)**: Future consideration for making RWA tokens themselves cross-chain portable, enabling secondary trading on non-Solana DEXs.
+
+### Resulting User Flows
+
+| User Profile | Entry Path | Protocol Entry |
+|---|---|---|
+| Indonesian retail investor | IDR → IDRX via IDRX.co | `invest_funds()` with IDRX |
+| US investor with bank account | USD → USDC via MoonPay embed | `invest_funds()` with USDC |
+| DeFi user on Ethereum | USDC (ETH) → Wormhole bridge → USDC (SOL) | `invest_funds()` with USDC |
+| Native Solana user | Already holds USDC/IDRX | `invest_funds()` directly |
+
+This layered architecture means the protocol achieves **global reach and fiat accessibility** without taking on fiat custody, AML obligations, or requiring a money transmitter license.
+
+## 6. Technology Stack & Roadmap
 - **Blockchain**: Solana Mainnet / Devnet
 - **Program Framework**: Anchor (Rust)
 - **Frontend App**: Next.js App Router (React)
