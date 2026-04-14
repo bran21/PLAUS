@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppWalletProvider from "@/components/AppWalletProvider";
-import ThreeBackgroundWrapper from "@/components/ThreeBackgroundWrapper";
 
 export const metadata: Metadata = {
   title: "Plaus Protocol — RWA Suite that suit you on Solana",
@@ -36,7 +35,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ThreeBackgroundWrapper />
         <AppWalletProvider>
           {children}
         </AppWalletProvider>

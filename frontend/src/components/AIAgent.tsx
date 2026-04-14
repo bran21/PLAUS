@@ -1,6 +1,13 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import styles from "./AIAgent.module.css";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import * as anchor from "@coral-xyz/anchor";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { getAccount, TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+import DevnetTokens from "../config/devnet-tokens.json";
+import InvestApyIdl from "../config/invest_apy.json";
+import { useProgram as useMockAmm } from "../hooks/useProgram";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -197,7 +204,7 @@ function StepProgress({ steps }: { steps: ResearchStep[] }) {
   );
 }
 
-function TxCard({ action, status, onSign }: { action: TxAction; status: TxStatus; onSign: () => void }) {
+function TxCard({ action, status, txHash, onSign }: { action: TxAction; status: TxStatus; txHash?: string; onSign: () => void }) {
   const labels: Record<TxStatus, string> = {
     idle:      "🔐 Sign Transaction",
     preparing: "⚙️ Preparing…",
@@ -210,7 +217,7 @@ function TxCard({ action, status, onSign }: { action: TxAction; status: TxStatus
   return (
     <div className={styles.txCard}>
       <div className={styles.txRow}><span>Function</span><code>{action.fn}()</code></div>
-      <div className={styles.txRow}><span>Amount</span><strong>{action.amount} USDC/IDRX</strong></div>
+      <div className={styles.txRow}><span>Amount</span><strong>{action.amount}</strong></div>
       <div className={styles.txRow}><span>Token</span><strong>${action.token}</strong></div>
       <div className={styles.txRow}><span>Units</span><strong>{action.units}</strong></div>
       <button
@@ -221,9 +228,9 @@ function TxCard({ action, status, onSign }: { action: TxAction; status: TxStatus
       >
         {labels[status]}
       </button>
-      {status === "confirmed" && (
+      {status === "confirmed" && txHash && (
         <p className={styles.txHash}>
-          Tx: <a href="#" className={styles.txHashLink}>3xK8…mP2q</a> · View on Solscan
+          Tx: <a href={`https://solscan.io/tx/${txHash}?cluster=devnet`} target="_blank" rel="noreferrer" className={styles.txHashLink}>{txHash.slice(0, 4)}…{txHash.slice(-4)}</a>
         </p>
       )}
     </div>
@@ -251,13 +258,49 @@ const INIT: Record<Tab, Message[]> = {
 };
 
 export default function AIAgent() {
+  const { wallet, publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
+  const mockAmmProgram = useMockAmm();
+  const [contextData, setContextData] = useState<any>({});
+  
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("research");
   const [messages, setMessages] = useState<Record<Tab, Message[]>>(INIT);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [txStatus, setTxStatus] = useState<TxStatus>("idle");
+  const [pendingAction, setPendingAction] = useState<TxAction | null>(null);
+  const [txHash, setTxHash] = useState<string>("");
   const chatRef = useRef<HTMLDivElement>(null);
+
+  // Fetch real on-chain context for LLM
+  useEffect(() => {
+    async function loadContext() {
+      if (!mockAmmProgram) return;
+      const ctx: any = { assets: ASSETS, pools: {} };
+      const tokensToCheck = ["JAVA", "SKYLN", "SGRID", "BALI", "PALM", "EVNET"];
+      const usdcMint = new PublicKey((DevnetTokens as any).USDC);
+      
+      for (const t of tokensToCheck) {
+        try {
+          const rwaMint = new PublicKey((DevnetTokens as any)[t]);
+          const [poolPda] = PublicKey.findProgramAddressSync(
+            [Buffer.from("pool"), rwaMint.toBuffer(), usdcMint.toBuffer()],
+            mockAmmProgram.programId
+          );
+          // @ts-expect-error
+          const poolData = await mockAmmProgram.account.pool.fetch(poolPda);
+          ctx.pools[t] = {
+            reserveRwa: poolData.reserveA.toNumber() / 1_000_000,
+            reserveUsdc: poolData.reserveB.toNumber() / 1_000_000,
+            price: (poolData.reserveB.toNumber() / Math.max(1, poolData.reserveA.toNumber())).toFixed(4)
+          };
+        } catch(e) {}
+      }
+      setContextData(ctx);
+    }
+    loadContext();
+  }, [mockAmmProgram]);
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -278,7 +321,7 @@ export default function AIAgent() {
     setTimeout(tick, 400);
   }, []);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     if (!input.trim() || isTyping) return;
     const userMsg: Message = { role: "user", content: input, status: "done" };
     const currentTab = tab;
@@ -287,40 +330,150 @@ export default function AIAgent() {
     setInput("");
     setIsTyping(true);
     setTxStatus("idle");
+    setPendingAction(null);
+    setTxHash("");
 
-    if (currentTab === "research") {
-      const { content, steps } = buildResearchReply(currentInput);
-      const stepsCopy = steps.map(s => ({ ...s }));
-      simulateSteps(stepsCopy, () => {
-        addMessage(currentTab, { role: "agent", content, steps: stepsCopy, status: "done" });
-        setIsTyping(false);
+    try {
+      const response = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tab: currentTab,
+          context: contextData,
+          messages: [...messages[currentTab], userMsg].map(m => ({ 
+            role: m.role === "agent" ? "assistant" : m.role, 
+            content: m.content || JSON.stringify(m.action) 
+          }))
+        })
       });
-      addMessage(currentTab, { role: "agent", content: "", steps: stepsCopy, status: "streaming" });
-      // replace streaming placeholder once done via simulateSteps callback above
-    } else if (currentTab === "investigate") {
-      const { content, steps } = buildInvestigateReply(currentInput);
-      const stepsCopy = steps.map(s => ({ ...s }));
-      simulateSteps(stepsCopy, () => {
-        addMessage(currentTab, { role: "agent", content, steps: stepsCopy, status: "done" });
-        setIsTyping(false);
-      });
-      addMessage(currentTab, { role: "agent", content: "", steps: stepsCopy, status: "streaming" });
-    } else {
-      setTimeout(() => {
-        const { content, action } = buildTransactReply(currentInput);
-        addMessage(currentTab, { role: "agent", content, action, status: "done" });
-        setIsTyping(false);
-      }, 900);
+      
+      if (!response.ok) throw new Error("API Failure");
+      const data = await response.json();
+      
+      if (currentTab === "transact") {
+        addMessage(currentTab, { role: "agent", content: data.content, action: data.action, status: "done" });
+        if (data.action) setPendingAction(data.action);
+      } else {
+        const stepsCopy = data.steps || [{ label: "Complete", detail: "Analyzed on-chain state.", done: false }];
+        simulateSteps(stepsCopy, () => {
+          addMessage(currentTab, { role: "agent", content: data.content, steps: stepsCopy, status: "done" });
+          setIsTyping(false);
+        });
+        addMessage(currentTab, { role: "agent", content: "", steps: stepsCopy, status: "streaming" });
+        return; // simulateSteps will clear isTyping
+      }
+    } catch (e) {
+      console.error(e);
+      addMessage(currentTab, { role: "agent", content: "Sorry, my neural link to Qwen encountered an error or API key is missing. Please check .env.local configuration.", status: "done" });
     }
-  }, [input, isTyping, tab, addMessage, simulateSteps]);
+    setIsTyping(false);
+  }, [input, isTyping, tab, messages, addMessage, contextData, simulateSteps]);
 
-  const handleSign = useCallback(() => {
+  const handleSign = useCallback(async () => {
+    if (!pendingAction || !publicKey || !wallet) return alert("Please connect wallet first.");
+    
     setTxStatus("preparing");
-    setTimeout(() => setTxStatus("simulating"), 900);
-    setTimeout(() => setTxStatus("awaiting"), 1800);
-    setTimeout(() => setTxStatus("signed"), 2700);
-    setTimeout(() => setTxStatus("confirmed"), 3800);
-  }, []);
+    try {
+      const provider = new anchor.AnchorProvider(connection, wallet.adapter as any, anchor.AnchorProvider.defaultOptions());
+      const investApyProgram = new anchor.Program(InvestApyIdl as any, provider);
+      
+      const { fn, amount, token } = pendingAction;
+      const usdcMintStr = (DevnetTokens as any).USDC;
+      const rwaMintStr = (DevnetTokens as any)[token];
+      if (!usdcMintStr || !rwaMintStr) throw new Error("Unknown token for action: " + token);
+      
+      const usdcMint = new PublicKey(usdcMintStr);
+      const rwaMint = new PublicKey(rwaMintStr);
+      
+      const preInstructions = [];
+      const userUsdc = anchor.utils.token.associatedAddress({ mint: usdcMint, owner: publicKey });
+      const userRwa = anchor.utils.token.associatedAddress({ mint: rwaMint, owner: publicKey });
+      
+      try { await getAccount(connection, userUsdc); } catch(e) {
+        preInstructions.push(createAssociatedTokenAccountInstruction(publicKey, userUsdc, publicKey, usdcMint));
+      }
+      try { await getAccount(connection, userRwa); } catch(e) {
+        preInstructions.push(createAssociatedTokenAccountInstruction(publicKey, userRwa, publicKey, rwaMint));
+      }
+
+      setTxStatus("awaiting");
+      let txSig = "";
+
+      if (fn === "invest_funds") {
+        const assetId = Object.keys(ASSETS).indexOf(token) + 101; 
+        const assetIdBuffer = new anchor.BN(assetId).toArrayLike(Buffer, "le", 8);
+
+        const [vaultPda] = PublicKey.findProgramAddressSync([Buffer.from("vault"), assetIdBuffer], investApyProgram.programId);
+        const [userDeposit] = PublicKey.findProgramAddressSync([Buffer.from("deposit"), vaultPda.toBuffer(), publicKey.toBuffer()], investApyProgram.programId);
+        const [usdcTokenVault] = PublicKey.findProgramAddressSync([Buffer.from("usdc_vault"), vaultPda.toBuffer()], investApyProgram.programId);
+        
+        const amountBase = new anchor.BN(parseFloat(amount) * 1_000_000);
+        
+        txSig = await investApyProgram.methods.depositUsdc(amountBase)
+          .accounts({
+            vault: vaultPda,
+            userDeposit,
+            user: publicKey,
+            userUsdc,
+            usdcTokenVault,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          } as any)
+          .preInstructions(preInstructions)
+          .rpc();
+          
+      } else if (fn === "swap" || fn === "add_liquidity") {
+        if (!mockAmmProgram) throw new Error("Mock AMM not loaded");
+        const [poolPda] = PublicKey.findProgramAddressSync([Buffer.from("pool"), rwaMint.toBuffer(), usdcMint.toBuffer()], mockAmmProgram.programId);
+        const [vaultA] = PublicKey.findProgramAddressSync([Buffer.from("vault_a"), poolPda.toBuffer()], mockAmmProgram.programId);
+        const [vaultB] = PublicKey.findProgramAddressSync([Buffer.from("vault_b"), poolPda.toBuffer()], mockAmmProgram.programId);
+        
+        if (fn === "swap") {
+          // Assume user is swapping Stable for RWA
+          const amountInBase = new anchor.BN(parseFloat(amount) * 1_000_000);
+          txSig = await mockAmmProgram.methods.swap(amountInBase, false)
+            .accounts({
+              pool: poolPda,
+              user: publicKey,
+              userIn: userUsdc,
+              userOut: userRwa,
+              vaultA, vaultB,
+              tokenProgram: TOKEN_PROGRAM_ID,
+            } as any)
+            .preInstructions(preInstructions)
+            .rpc();
+        } else {
+          // add_liquidity
+          const amountBBase = new anchor.BN(parseFloat(amount) * 1_000_000); // usdc is B
+          const price = parseFloat(contextData.pools[token]?.price || "25");
+          const amountABase = new anchor.BN((parseFloat(amount)/price) * 1_000_000);
+          
+          txSig = await mockAmmProgram.methods.addLiquidity(amountABase, amountBBase)
+            .accounts({
+              pool: poolPda,
+              user: publicKey,
+              userA: userRwa,
+              userB: userUsdc,
+              vaultA, vaultB,
+              tokenProgram: TOKEN_PROGRAM_ID,
+            } as any)
+            .preInstructions(preInstructions)
+            .rpc();
+        }
+      } else {
+         throw new Error("Unknown AI action intent: " + fn);
+      }
+      
+      setTxStatus("signed");
+      setTxHash(txSig);
+      setTimeout(() => setTxStatus("confirmed"), 1500);
+
+    } catch (e) {
+      console.error(e);
+      setTxStatus("idle");
+      alert("AI Transaction failed or rejected by wallet.");
+    }
+  }, [pendingAction, publicKey, wallet, connection, mockAmmProgram, contextData]);
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: "research",    label: "Research",    icon: "🔬" },
@@ -409,7 +562,7 @@ export default function AIAgent() {
                   )}
                   {/* Transaction card */}
                   {msg.action && (
-                    <TxCard action={msg.action} status={txStatus} onSign={handleSign} />
+                    <TxCard action={msg.action} status={txStatus} txHash={txHash} onSign={handleSign} />
                   )}
                 </div>
               </div>

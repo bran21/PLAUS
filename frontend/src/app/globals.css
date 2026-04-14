@@ -197,7 +197,11 @@ input {
 }
 
 .btn-primary:disabled {
-  opacity: 0.4;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  box-shadow: none;
+  border: 1px solid var(--glass-border);
+  cursor: not-allowed;
   pointer-events: none;
 }
 

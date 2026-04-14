@@ -36,10 +36,15 @@ const idl = JSON.parse(
 );
 const program = new anchor.Program(idl as any, provider);
 
+const mockAmmIdl = JSON.parse(
+  fs.readFileSync("./target/idl/mock_amm.json", "utf8")
+);
+const mockAmmProgram = new anchor.Program(mockAmmIdl as any, provider);
+
 // RWA Asset definitions matching the frontend
 const RWA_ASSETS = [
   {
-    id: 1,
+    id: 101,
     ticker: "JAVA",
     name: "Java Premium Coffee Estate",
     baseYieldBps: 1050, // 10.50%
@@ -49,7 +54,7 @@ const RWA_ASSETS = [
     rwaPriceUsdc: 25_000_000, // $25
   },
   {
-    id: 2,
+    id: 102,
     ticker: "SKYLN",
     name: "Skyline Commercial Tower",
     baseYieldBps: 600,
@@ -59,7 +64,7 @@ const RWA_ASSETS = [
     rwaPriceUsdc: 100_000_000, // $100
   },
   {
-    id: 3,
+    id: 103,
     ticker: "SGRID",
     name: "Solar Grid Alpha",
     baseYieldBps: 750,
@@ -69,7 +74,7 @@ const RWA_ASSETS = [
     rwaPriceUsdc: 50_000_000, // $50
   },
   {
-    id: 4,
+    id: 104,
     ticker: "BALI",
     name: "Bali Resort Collection",
     baseYieldBps: 680,
@@ -79,7 +84,7 @@ const RWA_ASSETS = [
     rwaPriceUsdc: 75_000_000, // $75
   },
   {
-    id: 5,
+    id: 105,
     ticker: "PALM",
     name: "Palm Oil Yield Fund",
     baseYieldBps: 1150,
@@ -89,7 +94,7 @@ const RWA_ASSETS = [
     rwaPriceUsdc: 10_000_000, // $10
   },
   {
-    id: 6,
+    id: 106,
     ticker: "EVNET",
     name: "EV Charging Network",
     baseYieldBps: 830,
@@ -111,6 +116,7 @@ async function setup() {
   let tokensConfig: any;
   const tokensPath = path.join(
     __dirname,
+    "..",
     "..",
     "frontend",
     "src",
@@ -158,6 +164,88 @@ async function setup() {
     console.log(`Created IDRX Mint: ${idrxMint.toBase58()}`);
   }
 
+  // Get or Create ATAs for user for USDC and IDRX
+  const usdcAta = await getOrCreateAssociatedTokenAccount(
+    connection,
+    walletKeypair,
+    usdcMint,
+    wallet.publicKey
+  );
+  // Mint USDC to user for liquidity provision
+  await mintTo(
+    connection,
+    walletKeypair,
+    usdcMint,
+    usdcAta.address,
+    walletKeypair,
+    10_000_000 * 1_000_000 // 10M USDC
+  );
+
+  const idrxAta = await getOrCreateAssociatedTokenAccount(
+    connection,
+    walletKeypair,
+    idrxMint,
+    wallet.publicKey
+  );
+  await mintTo(
+    connection,
+    walletKeypair,
+    idrxMint,
+    idrxAta.address,
+    walletKeypair,
+    150_000_000 * 1_000_000 // 150M IDRX
+  );
+
+  // Setup IDRX / USDC pool
+  console.log(`\n--- Setting up IDRX/USDC Pool ---`);
+  const [idrxPoolPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("pool"), idrxMint.toBuffer(), usdcMint.toBuffer()],
+    mockAmmProgram.programId
+  );
+  const [idrxVaultA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("vault_a"), idrxPoolPda.toBuffer()],
+    mockAmmProgram.programId
+  );
+  const [idrxVaultB] = PublicKey.findProgramAddressSync(
+    [Buffer.from("vault_b"), idrxPoolPda.toBuffer()],
+    mockAmmProgram.programId
+  );
+
+  try {
+    await mockAmmProgram.methods
+      .initializePool()
+      .accounts({
+        pool: idrxPoolPda,
+        mintA: idrxMint,
+        mintB: usdcMint,
+        vaultA: idrxVaultA,
+        vaultB: idrxVaultB,
+        user: wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .rpc();
+    console.log(`  Initialized IDRX/USDC pool: ${idrxPoolPda.toBase58()}`);
+
+    const liqIdrx = 15_000_000 * 1_000_000;
+    const liqUsdcIdrx = 1_000 * 1_000_000; // ~ 15000:1 ratio matching the rate
+    await mockAmmProgram.methods
+      .addLiquidity(new anchor.BN(liqIdrx), new anchor.BN(liqUsdcIdrx))
+      .accounts({
+        pool: idrxPoolPda,
+        user: wallet.publicKey,
+        userA: idrxAta.address,
+        userB: usdcAta.address,
+        vaultA: idrxVaultA,
+        vaultB: idrxVaultB,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .rpc();
+    console.log(`  Added initial liquidity: 15,000,000 IDRX and 1,000 USDC`);
+  } catch (e) {
+    console.log(`  IDRX/USDC pool might already exist or failed: ${e}`);
+  }
+
   // Create RWA token mints for each asset
   const rwaMints: Record<string, string> = {};
 
@@ -201,40 +289,48 @@ async function setup() {
 
     // Initialize vault
     console.log(`  Initializing vault...`);
-    await program.methods
-      .initializeVault(
-        new anchor.BN(asset.id),
-        new anchor.BN(asset.baseYieldBps),
-        new anchor.BN(asset.bonusYieldBps),
-        new anchor.BN(asset.lockupSeconds),
-        new anchor.BN(asset.minDeposit),
-        new anchor.BN(asset.rwaPriceUsdc),
-        new anchor.BN(IDRX_RATE)
-      )
-      .accounts({
-        vault: vaultPda,
-        usdcMint: usdcMint,
-        idrxMint: idrxMint,
-        rwaMint: rwaMint,
-        usdcTokenVault: usdcVaultPda,
-        idrxTokenVault: idrxVaultPda,
-        rwaTokenVault: rwaVaultPda,
-        admin: wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .rpc();
+    try {
+      await program.methods
+        .initializeVault(
+          new anchor.BN(asset.id),
+          new anchor.BN(asset.baseYieldBps),
+          new anchor.BN(asset.bonusYieldBps),
+          new anchor.BN(asset.lockupSeconds),
+          new anchor.BN(asset.minDeposit),
+          new anchor.BN(asset.rwaPriceUsdc),
+          new anchor.BN(IDRX_RATE)
+        )
+        .accounts({
+          vault: vaultPda,
+          usdcMint: usdcMint,
+          idrxMint: idrxMint,
+          rwaMint: rwaMint,
+          usdcTokenVault: usdcVaultPda,
+          idrxTokenVault: idrxVaultPda,
+          rwaTokenVault: rwaVaultPda,
+          admin: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
 
-    // Seed the RWA vault with tokens for yield distribution
-    const supplyAmount = 1_000_000 * 1_000_000; // 1M tokens
-    await mintTo(
-      connection,
-      walletKeypair,
-      rwaMint,
-      rwaVaultPda,
-      walletKeypair,
-      supplyAmount
-    );
+      // Seed the RWA vault with tokens for yield distribution
+      const supplyAmount = 1_000_000 * 1_000_000; // 1M tokens
+      await mintTo(
+        connection,
+        walletKeypair,
+        rwaMint,
+        rwaVaultPda,
+        walletKeypair,
+        supplyAmount
+      );
+
+      console.log(
+        `  Seeded with ${supplyAmount / 1_000_000} $${asset.ticker} tokens for yield`
+      );
+    } catch (e) {
+      console.log(`  Vault initialization failed (likely already initialized): ${e}`);
+    }
 
     const totalApy = (asset.baseYieldBps + asset.bonusYieldBps) / 100;
     console.log(`  Vault PDA: ${vaultPda.toBase58()}`);
@@ -242,9 +338,77 @@ async function setup() {
     console.log(
       `  Lockup: ${asset.lockupSeconds / (24 * 60 * 60)} days | Min: $${asset.minDeposit / 1_000_000}`
     );
-    console.log(
-      `  Seeded with ${supplyAmount / 1_000_000} $${asset.ticker} tokens for yield`
+
+    // Setup AMM Pool for RWA / USDC
+    const rwaAta = await getOrCreateAssociatedTokenAccount(
+      connection,
+      walletKeypair,
+      rwaMint,
+      wallet.publicKey
     );
+
+    await mintTo(
+      connection,
+      walletKeypair,
+      rwaMint,
+      rwaAta.address,
+      walletKeypair,
+      50_000 * 1_000_000 // 50k RWA tokens to admin
+    );
+
+    console.log(`  Setting up AMM Pool for ${asset.ticker}/USDC...`);
+    const [poolPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("pool"), rwaMint.toBuffer(), usdcMint.toBuffer()],
+      mockAmmProgram.programId
+    );
+
+    const [vaultA] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault_a"), poolPda.toBuffer()],
+      mockAmmProgram.programId
+    );
+
+    const [vaultB] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault_b"), poolPda.toBuffer()],
+      mockAmmProgram.programId
+    );
+
+    try {
+      await mockAmmProgram.methods
+        .initializePool()
+        .accounts({
+          pool: poolPda,
+          mintA: rwaMint,
+          mintB: usdcMint,
+          vaultA: vaultA,
+          vaultB: vaultB,
+          user: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      console.log(`  Initialized AMM pool: ${poolPda.toBase58()}`);
+
+      const amountRwa = 10_000 * 1_000_000; // 10,000 RWA
+      const amountUsdc = 10_000 * asset.rwaPriceUsdc; // 10,000 * price
+
+      await mockAmmProgram.methods
+        .addLiquidity(new anchor.BN(amountRwa), new anchor.BN(amountUsdc))
+        .accounts({
+          pool: poolPda,
+          user: wallet.publicKey,
+          userA: rwaAta.address,
+          userB: usdcAta.address,
+          vaultA: vaultA,
+          vaultB: vaultB,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      console.log(`  Added initial liquidity: 10,000 ${asset.ticker} and $${amountUsdc / 1_000_000} USDC`);
+    } catch (e) {
+      console.log(`  AMM pool might already exist or failed: ${e}`);
+    }
   }
 
   console.log("\n========================================");
@@ -257,26 +421,18 @@ async function setup() {
     console.log(`  $${ticker}: ${mint}`);
   }
 
-  // Save config
-  const config = {
+  // Save config — update the devnet-tokens.json that the frontend uses
+  const configOut = {
     USDC: usdcMint.toBase58(),
     IDRX: idrxMint.toBase58(),
     ...rwaMints,
-    investApyProgramId: program.programId.toBase58(),
   };
 
   fs.writeFileSync(
-    path.join(
-      __dirname,
-      "..",
-      "frontend",
-      "src",
-      "config",
-      "invest-apy-tokens.json"
-    ),
-    JSON.stringify(config, null, 2)
+    tokensPath,
+    JSON.stringify(configOut, null, 2)
   );
-  console.log("\nConfig saved to frontend/src/config/invest-apy-tokens.json");
+  console.log(`\nConfig saved to ${tokensPath}`);
 }
 
 setup().catch(console.error);

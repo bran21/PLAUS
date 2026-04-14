@@ -1,6 +1,12 @@
 "use client";
 import React, { useState } from "react";
 import styles from "./InvestPage.module.css";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import * as anchor from "@coral-xyz/anchor";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import InvestApyIdl from "../config/invest_apy.json";
+import DevnetTokens from "../config/devnet-tokens.json";
 
 export interface RwaAssetFull {
   id: number;
@@ -38,7 +44,7 @@ export interface RwaAssetFull {
 
 export const RWA_ASSETS_FULL: RwaAssetFull[] = [
   {
-    id: 1,
+    id: 101,
     name: "Java Premium Coffee Estate",
     ticker: "JAVA",
     category: "Agriculture",
@@ -76,7 +82,7 @@ export const RWA_ASSETS_FULL: RwaAssetFull[] = [
     lockupPeriod: "30 days",
   },
   {
-    id: 2,
+    id: 102,
     name: "Skyline Commercial Tower",
     ticker: "SKYLN",
     category: "Real Estate",
@@ -114,7 +120,7 @@ export const RWA_ASSETS_FULL: RwaAssetFull[] = [
     lockupPeriod: "90 days",
   },
   {
-    id: 3,
+    id: 103,
     name: "Solar Grid Alpha",
     ticker: "SGRID",
     category: "DePIN",
@@ -152,7 +158,7 @@ export const RWA_ASSETS_FULL: RwaAssetFull[] = [
     lockupPeriod: "60 days",
   },
   {
-    id: 4,
+    id: 104,
     name: "Bali Resort Collection",
     ticker: "BALI",
     category: "Hospitality",
@@ -190,7 +196,7 @@ export const RWA_ASSETS_FULL: RwaAssetFull[] = [
     lockupPeriod: "45 days",
   },
   {
-    id: 5,
+    id: 105,
     name: "Palm Oil Yield Fund",
     ticker: "PALM",
     category: "Agriculture",
@@ -228,7 +234,7 @@ export const RWA_ASSETS_FULL: RwaAssetFull[] = [
     lockupPeriod: "14 days",
   },
   {
-    id: 6,
+    id: 106,
     name: "EV Charging Network",
     ticker: "EVNET",
     category: "DePIN",
@@ -273,8 +279,117 @@ interface InvestPageProps {
 }
 
 export default function InvestPage({ asset, onBack }: InvestPageProps) {
+  const { wallet, publicKey } = useWallet();
+  const { connection } = useConnection();
+  const [isInvesting, setIsInvesting] = useState(false);
+
   const [investAmount, setInvestAmount] = useState("");
   const [currency, setCurrency] = useState<"USDC" | "IDRX">("USDC");
+  const [isMinting, setIsMinting] = useState(false);
+
+  const handleMintTokens = async () => {
+    if (!publicKey) return alert("Please connect wallet first");
+    try {
+      setIsMinting(true);
+      const res = await fetch("/api/faucet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: publicKey.toBase58() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert("Successfully minted 10,000 USDC and 150M IDRX to your wallet!");
+    } catch (e: any) {
+      console.error(e);
+      alert("Mint failed: " + e.message);
+    } finally {
+      setIsMinting(false);
+    }
+  };
+
+  const handleInvest = async () => {
+    if (!publicKey || !wallet) {
+      alert("Please connect your wallet");
+      return;
+    }
+    if (!investAmount || parseFloat(investAmount) <= 0) return;
+
+    try {
+      setIsInvesting(true);
+      const provider = new anchor.AnchorProvider(connection, wallet.adapter as any, anchor.AnchorProvider.defaultOptions());
+      const program = new anchor.Program(InvestApyIdl as any, provider);
+
+      const usdcMintStr = (DevnetTokens as any).USDC;
+      const idrxMintStr = (DevnetTokens as any).IDRX;
+
+      if (!usdcMintStr || !idrxMintStr) throw new Error("Mints not found in config");
+
+      const usdcMint = new PublicKey(usdcMintStr);
+      const idrxMint = new PublicKey(idrxMintStr);
+      
+      const assetIdBuffer = new anchor.BN(asset.id).toArrayLike(Buffer, "le", 8);
+
+      const [vaultPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vault"), assetIdBuffer],
+        program.programId
+      );
+
+      const [userDeposit] = PublicKey.findProgramAddressSync(
+        [Buffer.from("deposit"), vaultPda.toBuffer(), publicKey.toBuffer()],
+        program.programId
+      );
+
+      const amountBase = new anchor.BN(parseFloat(investAmount) * 1_000_000);
+
+      if (currency === "USDC") {
+        const [usdcTokenVault] = PublicKey.findProgramAddressSync(
+          [Buffer.from("usdc_vault"), vaultPda.toBuffer()],
+          program.programId
+        );
+        const userUsdc = anchor.utils.token.associatedAddress({ mint: usdcMint, owner: publicKey });
+
+        await program.methods
+          .depositUsdc(amountBase)
+          .accounts({
+            vault: vaultPda,
+            userDeposit: userDeposit,
+            user: publicKey,
+            userUsdc: userUsdc,
+            usdcTokenVault: usdcTokenVault,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          } as any)
+          .rpc();
+      } else {
+        const [idrxTokenVault] = PublicKey.findProgramAddressSync(
+          [Buffer.from("idrx_vault"), vaultPda.toBuffer()],
+          program.programId
+        );
+        const userIdrx = anchor.utils.token.associatedAddress({ mint: idrxMint, owner: publicKey });
+
+        await program.methods
+          .depositIdrx(amountBase)
+          .accounts({
+            vault: vaultPda,
+            userDeposit: userDeposit,
+            user: publicKey,
+            userIdrx: userIdrx,
+            idrxTokenVault: idrxTokenVault,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          } as any)
+          .rpc();
+      }
+
+      alert("Investment successful!");
+      setInvestAmount("");
+    } catch (e) {
+      console.error("Investment failed", e);
+      alert("Investment failed. Check console or make sure vault/tokens are initialized.");
+    } finally {
+      setIsInvesting(false);
+    }
+  };
 
   const idrxRate = 15625; // 1 USDC ≈ 15,625 IDRX
   const effectivePrice =
@@ -706,6 +821,8 @@ export default function InvestPage({ asset, onBack }: InvestPageProps) {
                   </div>
                 </div>
               )}
+              
+              <div style={{ marginTop: "1rem" }} />
 
               {/* Receive Box */}
               <div className={styles.receiveBox}>
@@ -715,17 +832,38 @@ export default function InvestPage({ asset, onBack }: InvestPageProps) {
                 </span>
               </div>
 
+              {/* Faucet Box */}
+              {publicKey && (
+                <div style={{ marginTop: "1.5rem", marginBottom: "1rem", display: "flex", gap: "10px", flexDirection: "column" }}>
+                  <button
+                    className="btn btn-secondary btn-full"
+                    onClick={handleMintTokens}
+                    disabled={isMinting}
+                    style={{ padding: "10px", borderColor: "rgba(0, 214, 143, 0.5)", color: "var(--color-primary)" }}
+                  >
+                    {isMinting ? "Processing Faucet..." : "💧 Get Devnet Test Tokens"}
+                  </button>
+                  <p style={{ fontSize: "0.80rem", color: "var(--text-muted)", textAlign: "center", margin: 0 }}>
+                    Click above if your transaction fails with initialization errors. It will mint 10k USDC to your testing wallet.
+                  </p>
+                </div>
+              )}
+
               {/* Invest Button */}
               <button
                 className="btn btn-primary btn-lg btn-full"
                 disabled={
                   !investAmount ||
                   parseFloat(investAmount) <= 0 ||
-                  asset.status === "upcoming"
+                  asset.status === "upcoming" ||
+                  isInvesting
                 }
                 id="confirm-invest-detail-btn"
+                onClick={handleInvest}
               >
-                {asset.status === "upcoming"
+                {isInvesting
+                  ? "Processing..."
+                  : asset.status === "upcoming"
                   ? "Coming Soon"
                   : investAmount && parseFloat(investAmount) > 0
                   ? `Invest ${currency === "USDC" ? "$" : ""}${parseFloat(investAmount).toLocaleString()} ${currency}`

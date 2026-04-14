@@ -17,7 +17,7 @@ invest_apy = "GcyrBWgTsxVjdtpXja1QYhJR3eHMBA43u51jPsD9jeKm"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

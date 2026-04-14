@@ -4,8 +4,9 @@ import styles from "./TradePanel.module.css";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
-import { getAccount, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAccount, getAssociatedTokenAddress, TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
 import { useProgram } from "../hooks/useProgram";
+import DevnetTokens from "../config/devnet-tokens.json";
 
 interface Token {
   ticker: string;
@@ -27,26 +28,24 @@ interface SwapPair {
 }
 
 const TOKENS: Record<string, Token> = {
-  USDC: { ticker: "USDC", name: "USD Coin", icon: "💵", address: "4ayMQNSs3euPf153WisuS6cZvB6cbcjcat5vcGuBuC8d", decimals: 6 },
-  IDRX: { ticker: "IDRX", name: "IDR Stablecoin", icon: "🇮🇩", address: "v15x8NaCm2teDnVu5M5dhdP5trV1D6YejF8m7a46ovF", decimals: 6 },
-  CROP: { ticker: "CROP", name: "Cropify Token", icon: "🌾", address: "9pH2RaHXG82Ai4iiLKX6xM6rTmqrkbDpWQPfZWTKbVq4", decimals: 6 },
-  JAVA: { ticker: "JAVA", name: "Java Coffee", icon: "☕", decimals: 6 },
-  SKYLN: { ticker: "SKYLN", name: "Skyline Tower", icon: "🏙️", decimals: 6 },
-  SGRID: { ticker: "SGRID", name: "Solar Grid", icon: "☀️", decimals: 6 },
-  BALI: { ticker: "BALI", name: "Bali Resort", icon: "🏝️", decimals: 6 },
-  PALM: { ticker: "PALM", name: "Palm Oil", icon: "🌴", decimals: 6 },
+  USDC: { ticker: "USDC", name: "USD Coin", icon: "💵", address: DevnetTokens.USDC, decimals: 6 },
+  IDRX: { ticker: "IDRX", name: "IDR Stablecoin", icon: "🇮🇩", address: DevnetTokens.IDRX, decimals: 6 },
+  JAVA: { ticker: "JAVA", name: "Java Coffee", icon: "☕", address: DevnetTokens.JAVA, decimals: 6 },
+  SKYLN: { ticker: "SKYLN", name: "Skyline Tower", icon: "🏙️", address: DevnetTokens.SKYLN, decimals: 6 },
+  SGRID: { ticker: "SGRID", name: "Solar Grid", icon: "☀️", address: DevnetTokens.SGRID, decimals: 6 },
+  BALI: { ticker: "BALI", name: "Bali Resort", icon: "🏝️", address: DevnetTokens.BALI, decimals: 6 },
+  PALM: { ticker: "PALM", name: "Palm Oil", icon: "🌴", address: DevnetTokens.PALM, decimals: 6 },
+  EVNET: { ticker: "EVNET", name: "EV Network", icon: "🔌", address: (DevnetTokens as any).EVNET, decimals: 6 },
 };
 
 const SWAP_PAIRS: SwapPair[] = [
-  { id: "CROP-USDC", tokenA: TOKENS.CROP, tokenB: TOKENS.USDC, reserveA: 0, reserveB: 0, fee: 0.3, volume24h: "$124.5K", tvl: "$1.2M" },
-  { id: "IDRX-USDC", tokenA: TOKENS.IDRX, tokenB: TOKENS.USDC, reserveA: 0, reserveB: 0, fee: 0.3, volume24h: "$45.2K", tvl: "$500K" },
   { id: "JAVA-USDC", tokenA: TOKENS.JAVA, tokenB: TOKENS.USDC, reserveA: 5000, reserveB: 125000, fee: 0.3, volume24h: "$38.1K", tvl: "$250K" },
-  { id: "JAVA-IDRX", tokenA: TOKENS.JAVA, tokenB: TOKENS.IDRX, reserveA: 2000, reserveB: 781250000, fee: 0.3, volume24h: "$12.8K", tvl: "$100K" },
   { id: "SKYLN-USDC", tokenA: TOKENS.SKYLN, tokenB: TOKENS.USDC, reserveA: 24000, reserveB: 2400000, fee: 0.3, volume24h: "$210.0K", tvl: "$4.8M" },
   { id: "SGRID-USDC", tokenA: TOKENS.SGRID, tokenB: TOKENS.USDC, reserveA: 17000, reserveB: 850000, fee: 0.3, volume24h: "$67.3K", tvl: "$1.7M" },
   { id: "BALI-USDC", tokenA: TOKENS.BALI, tokenB: TOKENS.USDC, reserveA: 10000, reserveB: 750000, fee: 0.3, volume24h: "$92.4K", tvl: "$1.5M" },
   { id: "PALM-USDC", tokenA: TOKENS.PALM, tokenB: TOKENS.USDC, reserveA: 100000, reserveB: 1000000, fee: 0.3, volume24h: "$156.7K", tvl: "$2.0M" },
-  { id: "PALM-IDRX", tokenA: TOKENS.PALM, tokenB: TOKENS.IDRX, reserveA: 50000, reserveB: 7812500000, fee: 0.3, volume24h: "$28.9K", tvl: "$625K" },
+  { id: "EVNET-USDC", tokenA: TOKENS.EVNET, tokenB: TOKENS.USDC, reserveA: 10000, reserveB: 400000, fee: 0.3, volume24h: "$45.6K", tvl: "$800K" },
+  { id: "IDRX-USDC", tokenA: TOKENS.IDRX, tokenB: TOKENS.USDC, reserveA: 0, reserveB: 0, fee: 0.3, volume24h: "$45.2K", tvl: "$500K" },
 ];
 
 type Tab = "swap" | "liquidity";
@@ -196,11 +195,21 @@ export default function TradePanel() {
       const [vaultA] = PublicKey.findProgramAddressSync([Buffer.from("vault_a"), poolPda.toBuffer()], program.programId);
       const [vaultB] = PublicKey.findProgramAddressSync([Buffer.from("vault_b"), poolPda.toBuffer()], program.programId);
 
-      // We need ATAs for the user
-      // For simplicity, we assume they exist as they were created by the setup script
-      // In a real app we'd get them or create instructions to create them if they don't exist
+      // We need ATAs for the user, create them if they do not exist
       const userTokenA = anchor.utils.token.associatedAddress({ mint: mintA, owner: publicKey });
       const userTokenB = anchor.utils.token.associatedAddress({ mint: mintB, owner: publicKey });
+
+      const preInstructions = [];
+      try {
+        await getAccount(connection, userTokenA);
+      } catch (e) {
+        preInstructions.push(createAssociatedTokenAccountInstruction(publicKey, userTokenA, publicKey, mintA));
+      }
+      try {
+        await getAccount(connection, userTokenB);
+      } catch (e) {
+        preInstructions.push(createAssociatedTokenAccountInstruction(publicKey, userTokenB, publicKey, mintB));
+      }
 
       const amountInBase = new anchor.BN(parseFloat(fromAmount) * 1_000_000);
       const isAtoB = direction === "AtoB";
@@ -216,6 +225,7 @@ export default function TradePanel() {
           vaultB: vaultB,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
+        .preInstructions(preInstructions)
         .rpc();
 
       alert("Swap successful!");
@@ -245,6 +255,18 @@ export default function TradePanel() {
       const userTokenA = anchor.utils.token.associatedAddress({ mint: mintA, owner: publicKey });
       const userTokenB = anchor.utils.token.associatedAddress({ mint: mintB, owner: publicKey });
 
+      const preInstructions = [];
+      try {
+        await getAccount(connection, userTokenA);
+      } catch (e) {
+        preInstructions.push(createAssociatedTokenAccountInstruction(publicKey, userTokenA, publicKey, mintA));
+      }
+      try {
+        await getAccount(connection, userTokenB);
+      } catch (e) {
+        preInstructions.push(createAssociatedTokenAccountInstruction(publicKey, userTokenB, publicKey, mintB));
+      }
+
       const amountABase = new anchor.BN(parseFloat(lpAmountA) * 1_000_000);
       const amountBBase = new anchor.BN(parseFloat(lpAmountB) * 1_000_000);
 
@@ -259,6 +281,7 @@ export default function TradePanel() {
           vaultB: vaultB,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
+        .preInstructions(preInstructions)
         .rpc();
 
       alert("Liquidity added successfully!");
