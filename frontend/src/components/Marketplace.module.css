@@ -236,8 +236,7 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(5, 11, 20, 0.6);
-  backdrop-filter: blur(8px);
+  background: rgba(5, 11, 20, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;

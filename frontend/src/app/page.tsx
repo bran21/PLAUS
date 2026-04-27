@@ -16,31 +16,20 @@ export default function Home() {
         <HowItWorks />
 
         {/* Final CTA Section */}
-        <section style={{ padding: '8rem 0', position: 'relative', zIndex: 1, overflow: 'hidden' }}>
+        <section style={{ padding: '4rem 0', position: 'relative', zIndex: 1, overflow: 'hidden' }}>
           <div className="container" style={{ position: 'relative', zIndex: 1 }}>
             <div
-              className="glass"
+              className="card-surface"
               style={{
                 padding: 'clamp(3rem, 6vw, 5rem)',
                 textAlign: 'center',
                 maxWidth: '800px',
                 margin: '0 auto',
-                borderColor: 'rgba(0, 214, 143, 0.1)',
+                borderColor: 'rgba(0, 214, 143, 0.12)',
                 position: 'relative',
                 overflow: 'hidden',
               }}
             >
-              {/* Radial glow */}
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '400px',
-                height: '400px',
-                background: 'radial-gradient(circle, rgba(0, 214, 143, 0.08), transparent 70%)',
-                pointerEvents: 'none',
-              }} />
               <h2 style={{
                 fontSize: 'clamp(2rem, 4vw, 2.75rem)',
                 fontWeight: 800,

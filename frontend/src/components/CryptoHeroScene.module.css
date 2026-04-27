@@ -1,0 +1,29 @@
+.sceneWrap {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* Vignette overlay for depth */
+.sceneWrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, rgba(5, 11, 20, 0.7) 100%);
+}
+
+/* Bottom fade for text readability */
+.bottomFade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--bg-primary) 0%, transparent 100%);
+}

@@ -12,6 +12,7 @@ interface Token {
   ticker: string;
   name: string;
   icon: string;
+  iconImg?: string;
   address?: string;
   decimals: number;
 }
@@ -28,8 +29,8 @@ interface SwapPair {
 }
 
 const TOKENS: Record<string, Token> = {
-  USDC: { ticker: "USDC", name: "USD Coin", icon: "💵", address: DevnetTokens.USDC, decimals: 6 },
-  IDRX: { ticker: "IDRX", name: "IDR Stablecoin", icon: "🇮🇩", address: DevnetTokens.IDRX, decimals: 6 },
+  USDC: { ticker: "USDC", name: "USD Coin", icon: "💵", iconImg: "/usdc.png", address: DevnetTokens.USDC, decimals: 6 },
+  IDRX: { ticker: "IDRX", name: "IDR Stablecoin", icon: "🇮🇩", iconImg: "/idrx.png", address: DevnetTokens.IDRX, decimals: 6 },
   JAVA: { ticker: "JAVA", name: "Java Coffee", icon: "☕", address: DevnetTokens.JAVA, decimals: 6 },
   SKYLN: { ticker: "SKYLN", name: "Skyline Tower", icon: "🏙️", address: DevnetTokens.SKYLN, decimals: 6 },
   SGRID: { ticker: "SGRID", name: "Solar Grid", icon: "☀️", address: DevnetTokens.SGRID, decimals: 6 },
@@ -61,6 +62,21 @@ function formatNumber(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   if (n >= 1) return n.toFixed(2);
   return n.toFixed(6);
+}
+
+function TokenIcon({ token, size = 20 }: { token: Token; size?: number }) {
+  if (token.iconImg) {
+    return (
+      <img
+        src={token.iconImg}
+        alt={token.ticker}
+        width={size}
+        height={size}
+        style={{ borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+      />
+    );
+  }
+  return <span style={{ fontSize: `${size * 0.8}px`, lineHeight: 1 }}>{token.icon}</span>;
 }
 
 export default function TradePanel() {
@@ -319,8 +335,8 @@ export default function TradePanel() {
                   id={`pair-${pair.id.toLowerCase()}`}
                 >
                   <div className={styles.pairIcons}>
-                    <span className={styles.pairIcon}>{pair.tokenA.icon}</span>
-                    <span className={styles.pairIconOverlap}>{pair.tokenB.icon}</span>
+                    <span className={styles.pairIcon}><TokenIcon token={pair.tokenA} size={20} /></span>
+                    <span className={styles.pairIconOverlap}><TokenIcon token={pair.tokenB} size={20} /></span>
                   </div>
                   <div className={styles.pairInfo}>
                     <span className={styles.pairName}>
@@ -369,8 +385,8 @@ export default function TradePanel() {
                     id="pair-select-btn"
                   >
                     <div className={styles.pairSelectIcons}>
-                      <span>{selectedPair.tokenA.icon}</span>
-                      <span className={styles.pairSelectOverlap}>{selectedPair.tokenB.icon}</span>
+                      <span><TokenIcon token={selectedPair.tokenA} size={20} /></span>
+                      <span className={styles.pairSelectOverlap}><TokenIcon token={selectedPair.tokenB} size={20} /></span>
                     </div>
                     <span className={styles.pairSelectLabel}>
                       {selectedPair.tokenA.ticker}/{selectedPair.tokenB.ticker}
@@ -403,8 +419,8 @@ export default function TradePanel() {
                             onClick={() => handleSelectPair(pair)}
                           >
                             <div className={styles.pairDropdownIcons}>
-                              <span>{pair.tokenA.icon}</span>
-                              <span className={styles.pairDropdownOverlap}>{pair.tokenB.icon}</span>
+                              <span><TokenIcon token={pair.tokenA} size={18} /></span>
+                              <span className={styles.pairDropdownOverlap}><TokenIcon token={pair.tokenB} size={18} /></span>
                             </div>
                             <div className={styles.pairDropdownInfo}>
                               <strong>{pair.tokenA.ticker}/{pair.tokenB.ticker}</strong>
@@ -436,7 +452,7 @@ export default function TradePanel() {
                       id="swap-from-input"
                     />
                     <div className={styles.tokenPill}>
-                      <span className={styles.tokenIcon}>{fromToken.icon}</span>
+                      <span className={styles.tokenIcon}><TokenIcon token={fromToken} size={16} /></span>
                       {fromToken.ticker}
                     </div>
                   </div>
@@ -467,7 +483,7 @@ export default function TradePanel() {
                       id="swap-to-input"
                     />
                     <div className={styles.tokenPill}>
-                      <span className={styles.tokenIcon}>{toToken.icon}</span>
+                      <span className={styles.tokenIcon}><TokenIcon token={toToken} size={16} /></span>
                       {toToken.ticker}
                     </div>
                   </div>
@@ -517,8 +533,8 @@ export default function TradePanel() {
                     id="lp-pair-select-btn"
                   >
                     <div className={styles.pairSelectIcons}>
-                      <span>{selectedPair.tokenA.icon}</span>
-                      <span className={styles.pairSelectOverlap}>{selectedPair.tokenB.icon}</span>
+                      <span><TokenIcon token={selectedPair.tokenA} size={20} /></span>
+                      <span className={styles.pairSelectOverlap}><TokenIcon token={selectedPair.tokenB} size={20} /></span>
                     </div>
                     <span className={styles.pairSelectLabel}>
                       {selectedPair.tokenA.ticker}/{selectedPair.tokenB.ticker}
@@ -551,8 +567,8 @@ export default function TradePanel() {
                             onClick={() => handleSelectPair(pair)}
                           >
                             <div className={styles.pairDropdownIcons}>
-                              <span>{pair.tokenA.icon}</span>
-                              <span className={styles.pairDropdownOverlap}>{pair.tokenB.icon}</span>
+                              <span><TokenIcon token={pair.tokenA} size={18} /></span>
+                              <span className={styles.pairDropdownOverlap}><TokenIcon token={pair.tokenB} size={18} /></span>
                             </div>
                             <div className={styles.pairDropdownInfo}>
                               <strong>{pair.tokenA.ticker}/{pair.tokenB.ticker}</strong>
@@ -588,7 +604,7 @@ export default function TradePanel() {
                       id="lp-amount-a-input"
                     />
                     <div className={styles.tokenPill}>
-                      <span className={styles.tokenIcon}>{selectedPair.tokenA.icon}</span>
+                      <span className={styles.tokenIcon}><TokenIcon token={selectedPair.tokenA} size={16} /></span>
                       {selectedPair.tokenA.ticker}
                     </div>
                   </div>
@@ -611,7 +627,7 @@ export default function TradePanel() {
                       id="lp-amount-b-input"
                     />
                     <div className={styles.tokenPill}>
-                      <span className={styles.tokenIcon}>{selectedPair.tokenB.icon}</span>
+                      <span className={styles.tokenIcon}><TokenIcon token={selectedPair.tokenB} size={16} /></span>
                       {selectedPair.tokenB.ticker}
                     </div>
                   </div>

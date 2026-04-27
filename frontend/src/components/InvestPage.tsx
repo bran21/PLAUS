@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "./InvestPage.module.css";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import * as anchor from "@coral-xyz/anchor";
@@ -287,6 +287,43 @@ export default function InvestPage({ asset, onBack }: InvestPageProps) {
   const [currency, setCurrency] = useState<"USDC" | "IDRX">("USDC");
   const [isMinting, setIsMinting] = useState(false);
 
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
+  const [idrxBalance, setIdrxBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!publicKey) {
+      setUsdcBalance(null);
+      setIdrxBalance(null);
+      return;
+    }
+    const fetchBalances = async () => {
+      try {
+        const usdcMintStr = (DevnetTokens as any).USDC;
+        if (usdcMintStr) {
+          const usdcMint = new PublicKey(usdcMintStr);
+          const usdcAta = anchor.utils.token.associatedAddress({ mint: usdcMint, owner: publicKey });
+          try {
+             const bal = await connection.getTokenAccountBalance(usdcAta);
+             setUsdcBalance(bal.value.uiAmount);
+          } catch { setUsdcBalance(0); }
+        }
+
+        const idrxMintStr = (DevnetTokens as any).IDRX;
+        if (idrxMintStr) {
+          const idrxMint = new PublicKey(idrxMintStr);
+          const idrxAta = anchor.utils.token.associatedAddress({ mint: idrxMint, owner: publicKey });
+          try {
+             const bal = await connection.getTokenAccountBalance(idrxAta);
+             setIdrxBalance(bal.value.uiAmount);
+          } catch { setIdrxBalance(0); }
+        }
+      } catch (e) { 
+        console.error(e);
+      }
+    };
+    fetchBalances();
+  }, [publicKey, connection, isMinting, isInvesting]);
+
   const handleMintTokens = async () => {
     if (!publicKey) return alert("Please connect wallet first");
     try {
@@ -383,9 +420,19 @@ export default function InvestPage({ asset, onBack }: InvestPageProps) {
 
       alert("Investment successful!");
       setInvestAmount("");
-    } catch (e) {
+    } catch (e: any) {
       console.error("Investment failed", e);
-      alert("Investment failed. Check console or make sure vault/tokens are initialized.");
+      const errorMsg = e?.message || e?.toString() || "";
+      
+      if (errorMsg.includes("This transaction has already been processed")) {
+        alert("Investment successful! (Note: the devnet RPC processed this twice, but the deposit went through).");
+      } else if (errorMsg.includes("BelowMinimum") || errorMsg.includes("6000")) {
+        alert(`Investment failed: Amount is below the minimum deposit required for this asset.`);
+      } else if (errorMsg.includes("AccountNotFound") || errorMsg.includes("AccountNotInitialized")) {
+        alert("Investment failed: Missing token accounts. Please use the 'Faucet' button above to get USDC/IDRX first!");
+      } else {
+        alert("Investment failed. Please check the console for details.\n\nError: " + errorMsg);
+      }
     } finally {
       setIsInvesting(false);
     }
@@ -759,9 +806,19 @@ export default function InvestPage({ asset, onBack }: InvestPageProps) {
 
               {/* Amount Input */}
               <div className={styles.investInputGroup}>
-                <label className={styles.investInputLabel}>
-                  Investment Amount
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'center' }}>
+                  <label className={styles.investInputLabel} style={{ marginBottom: 0 }}>
+                    Investment Amount
+                  </label>
+                  {publicKey && (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      Balance: {currency === "USDC"
+                        ? (usdcBalance !== null ? usdcBalance.toLocaleString(undefined, {maximumFractionDigits: 2}) : "...")
+                        : (idrxBalance !== null ? idrxBalance.toLocaleString(undefined, {maximumFractionDigits: 2}) : "...")}
+                      {' '}{currency}
+                    </span>
+                  )}
+                </div>
                 <div className={styles.investInputWrapper}>
                   <input
                     type="number"
