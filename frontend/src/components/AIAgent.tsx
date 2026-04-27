@@ -400,7 +400,8 @@ export default function AIAgent() {
       let txSig = "";
 
       if (fn === "invest_funds") {
-        const assetId = Object.keys(ASSETS).indexOf(token) + 101; 
+        const idMap: Record<string, number> = { JAVA: 101, SKYLN: 102, SGRID: 103, BALI: 104, PALM: 105, EVNET: 106 };
+        const assetId = idMap[token] || 101; 
         const assetIdBuffer = new anchor.BN(assetId).toArrayLike(Buffer, "le", 8);
 
         const [vaultPda] = PublicKey.findProgramAddressSync([Buffer.from("vault"), assetIdBuffer], investApyProgram.programId);
@@ -468,10 +469,19 @@ export default function AIAgent() {
       setTxHash(txSig);
       setTimeout(() => setTxStatus("confirmed"), 1500);
 
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       setTxStatus("idle");
-      alert("AI Transaction failed or rejected by wallet.");
+      const errorMsg = e?.message || e?.toString() || "";
+      if (errorMsg.includes("User rejected the request")) {
+        alert("Transaction was cancelled in the wallet.");
+      } else if (errorMsg.includes("This transaction has already been processed")) {
+        alert("Transaction successful! (The network flagged it as processed twice, but it went through).");
+      } else if (errorMsg.includes("BelowMinimum") || errorMsg.includes("6000")) {
+        alert("Transaction failed: Amount is below the minimum required for this asset.");
+      } else {
+        alert("AI Transaction failed: " + errorMsg);
+      }
     }
   }, [pendingAction, publicKey, wallet, connection, mockAmmProgram, contextData]);
 
