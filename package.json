@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "cd mock_amm && npm install && npx ts-node scripts/setup_invest_apy.ts && cd .. && next build",
     "start": "next start",
     "lint": "eslint"
   },

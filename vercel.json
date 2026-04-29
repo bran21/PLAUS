@@ -1,5 +1,0 @@
-{
-  "version": 2,
-  "buildCommand": "cd mock_amm && yarn install && npx ts-node scripts/setup_invest_apy.ts && cd .. && npm install && npm run build",
-  "framework": "nextjs"
-}
