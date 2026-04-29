@@ -13,12 +13,26 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-// Read the keypair from the default devnet location
-const secretKeyString = fs.readFileSync(
-  path.join(os.homedir(), ".config", "solana", "id.json"),
-  { encoding: "utf8" }
-);
-const secretKey = Uint8Array.from(JSON.parse(secretKeyString));
+// Read the keypair from env var or default devnet location
+let secretKeyString: string;
+if (process.env.SOLANA_PRIVATE_KEY) {
+  secretKeyString = process.env.SOLANA_PRIVATE_KEY;
+} else {
+  secretKeyString = fs.readFileSync(
+    path.join(os.homedir(), ".config", "solana", "id.json"),
+    { encoding: "utf8" }
+  );
+}
+
+// Check if secret is a JSON array string or base58 string
+let secretKey: Uint8Array;
+try {
+  secretKey = Uint8Array.from(JSON.parse(secretKeyString));
+} catch (e) {
+  // If it's not JSON, assume it's base58 (common for Phantom exports)
+  const bs58 = require('bs58');
+  secretKey = bs58.decode(secretKeyString);
+}
 const walletKeypair = Keypair.fromSecretKey(secretKey);
 
 const wallet = new anchor.Wallet(walletKeypair);
