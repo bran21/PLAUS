@@ -42,8 +42,8 @@
   bottom: 1.5rem;
   right: 1.5rem;
   z-index: 110;
-  width: 420px;
-  height: 620px;
+  width: clamp(320px, 30vw, 420px);
+  height: clamp(480px, 60vh, 620px);
   background: var(--bg-secondary);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
@@ -389,6 +389,13 @@
 }
 
 /* ─── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .panel {
+    width: clamp(300px, 45vw, 380px);
+    height: clamp(400px, 55vh, 560px);
+  }
+}
+
 @media (max-width: 480px) {
   .panel {
     left: 0.75rem;

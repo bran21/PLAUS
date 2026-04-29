@@ -131,13 +131,13 @@ body::after {
    LAYOUT
    ============================================= */
 .container {
-  max-width: 1280px;
+  max-width: min(1280px, 95%);
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 clamp(1rem, 2.5vw, 1.5rem);
 }
 
 .page-content {
-  padding-bottom: 6rem;
+  padding-bottom: clamp(3rem, 5vw, 6rem);
 }
 
 .app-layout {
@@ -147,8 +147,15 @@ body::after {
 
 .app-main {
   flex: 1;
-  margin-left: 260px;
-  width: calc(100% - 260px);
+  margin-left: clamp(200px, 18vw, 260px);
+  width: calc(100% - clamp(200px, 18vw, 260px));
+}
+
+@media (max-width: 1024px) {
+  .app-main {
+    margin-left: clamp(180px, 22vw, 220px);
+    width: calc(100% - clamp(180px, 22vw, 220px));
+  }
 }
 
 @media (max-width: 768px) {
@@ -416,8 +423,13 @@ body::after {
 /* =============================================
    SCROLLBAR — DARK
    ============================================= */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -425,12 +437,12 @@ body::after {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.06);
-  border-radius: 3px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.25);
 }
 
 /* =============================================
@@ -469,8 +481,14 @@ body::after {
 /* =============================================
    RESPONSIVE
    ============================================= */
+@media (max-width: 1200px) {
+  .container {
+    max-width: min(1100px, 96%);
+  }
+}
+
 @media (max-width: 768px) {
   .container {
-    padding: 0 1rem;
+    padding: 0 0.875rem;
   }
 }

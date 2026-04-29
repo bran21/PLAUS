@@ -103,8 +103,8 @@
 /* Main Grid */
 .grid {
   display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 1.5rem;
+  grid-template-columns: 1fr clamp(300px, 32vw, 380px);
+  gap: clamp(1rem, 2vw, 1.5rem);
 }
 
 /* Cards */
@@ -644,6 +644,12 @@
 }
 
 /* Responsive */
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: 1fr clamp(280px, 35vw, 340px);
+  }
+}
+
 @media (max-width: 1024px) {
   .grid {
     grid-template-columns: 1fr;

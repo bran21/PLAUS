@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════ */
 
 .features {
-  padding: 6rem 0 4rem;
+  padding: clamp(4rem, 6vw, 6rem) 0 clamp(3rem, 4vw, 4rem);
   position: relative;
   z-index: 1;
   overflow: hidden;
@@ -58,7 +58,7 @@
 
 .featureCard {
   position: relative;
-  padding: 2.25rem;
+  padding: clamp(1.5rem, 2.5vw, 2.25rem);
   background: var(--surface-card);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);

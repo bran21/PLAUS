@@ -20,8 +20,8 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 440px;
-  gap: 3rem;
+  grid-template-columns: 1fr clamp(340px, 35vw, 440px);
+  gap: clamp(1.5rem, 3vw, 3rem);
   align-items: start;
 }
 
@@ -491,6 +491,13 @@
 /* ========================================
    RESPONSIVE
    ======================================== */
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr clamp(300px, 38vw, 380px);
+    gap: 1.5rem;
+  }
+}
+
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
