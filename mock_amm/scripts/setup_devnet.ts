@@ -155,7 +155,7 @@ async function setup() {
 
     // Save to a file for easy access by frontend
     fs.writeFileSync(
-        path.join(__dirname, '..', 'frontend', 'src', 'config', 'devnet-tokens.json'),
+        path.join(__dirname, '..', '..', 'src', 'config', 'devnet-tokens.json'),
         JSON.stringify({
             USDC: usdcMint.toBase58(),
             IDRX: idrxMint.toBase58(),
