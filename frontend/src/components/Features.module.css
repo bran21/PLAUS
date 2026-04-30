@@ -1,0 +1,153 @@
+/* ═══════════════════════════════════════════════════
+   FEATURES — CARD GRID LAYOUT
+   ═══════════════════════════════════════════════════ */
+
+.features {
+  padding: clamp(4rem, 6vw, 6rem) 0 clamp(3rem, 4vw, 4rem);
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* ── Section Header ───────────────────────────── */
+.header {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 5rem;
+}
+
+.sectionTag {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid rgba(56, 224, 187, 0.1);
+  padding: 0.375rem 1rem;
+  border-radius: 100px;
+  margin-bottom: 1.5rem;
+}
+
+.title {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.subtitle {
+  font-size: 1.0625rem;
+  color: var(--text-secondary);
+  max-width: 520px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* ── Feature Grid ─────────────────────────────── */
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.featureCard {
+  position: relative;
+  padding: clamp(1.5rem, 2.5vw, 2.25rem);
+  background: var(--surface-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s var(--ease-spring),
+              transform 0.6s var(--ease-spring),
+              border-color 0.3s var(--ease),
+              box-shadow 0.3s var(--ease);
+}
+
+.featureVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.featureCard:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* ── Icon ─────────────────────────────────────── */
+.featureIconWrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  color: #fff;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Content ──────────────────────────────────── */
+.featureTitle {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.featureDesc {
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Ambient Glow ─────────────────────────────── */
+.featureGlow {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  opacity: 0.04;
+  filter: blur(40px);
+  pointer-events: none;
+  transition: opacity 0.4s var(--ease);
+}
+
+.featureCard:hover .featureGlow {
+  opacity: 0.08;
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .features {
+    padding: 5rem 0 4rem;
+  }
+
+  .featureGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .featureCard {
+    padding: 1.75rem;
+  }
+}
