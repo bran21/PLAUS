@@ -38,7 +38,7 @@ async function main() {
   console.log("JAVA Mint:", javaMint.toBase58());
 
   // Write to devnet-tokens.json
-  const configPath = "../frontend/src/config/devnet-tokens.json";
+  const configPath = "../src/config/devnet-tokens.json";
   fs.writeFileSync(configPath, JSON.stringify({
     USDC: usdcMint.toBase58(),
     IDRX: idrxMint.toBase58(),

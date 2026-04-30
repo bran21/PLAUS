@@ -21,7 +21,7 @@ async function airdrop() {
   const connection = new Connection("https://api.devnet.solana.com", "confirmed");
 
   // Load tokens
-  const tokensPath = path.join(__dirname, "..", "..", "frontend", "src", "config", "devnet-tokens.json");
+  const tokensPath = path.join(__dirname, "..", "..", "src", "config", "devnet-tokens.json");
   const tokens = JSON.parse(fs.readFileSync(tokensPath, "utf8"));
 
   console.log(`Airdropping to ${targetWallet.toBase58()}...`);

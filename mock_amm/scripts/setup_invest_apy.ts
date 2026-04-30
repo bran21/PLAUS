@@ -132,7 +132,6 @@ async function setup() {
     __dirname,
     "..",
     "..",
-    "frontend",
     "src",
     "config",
     "devnet-tokens.json"

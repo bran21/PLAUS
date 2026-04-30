@@ -5,8 +5,8 @@ import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
 import fs from "fs";
 import os from "os";
 import path from "path";
-const InvestApyIdl = require("../../frontend/src/config/invest_apy.json");
-const DevnetTokens = require("../../frontend/src/config/devnet-tokens.json");
+const InvestApyIdl = require("../../src/config/invest_apy.json");
+const DevnetTokens = require("../../src/config/devnet-tokens.json");
 
 async function main() {
   const secretKeyString = fs.readFileSync(path.join(os.homedir(), ".config", "solana", "id.json"), "utf8");
